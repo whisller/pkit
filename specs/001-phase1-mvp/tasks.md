@@ -69,7 +69,7 @@ graph TD
 - [ ] T002 [P] Create cmd/pkit/main.go with Cobra root command setup
 - [ ] T003 [P] Create internal/ package structure: config/, source/, parser/, index/, bookmark/, tui/, display/
 - [ ] T004 [P] Create pkg/models/ package with placeholder model files
-- [ ] T005 [P] Add go.mod dependencies: Cobra v1.8.1, Bubbletea v1.2.4, go-git v5.12.0, goccy/go-yaml v1.15.13, zalando/go-keyring v0.2.6, bleve v2.4.5, isatty v0.0.20
+- [ ] T005 [P] Add go.mod dependencies: Cobra v1.10.2, Bubbletea v1.3.10, go-git v5.16.4, goccy/go-yaml v1.19.1, zalando/go-keyring v0.2.6, bleve v2.5.7, isatty v0.0.20
 - [ ] T006 [P] Create Makefile with build, test, lint, clean targets
 - [ ] T007 [P] Create .github/workflows/test.yml for CI (go test, go fmt, go vet)
 - [ ] T008 [P] Create README.md with project overview and quick start instructions
