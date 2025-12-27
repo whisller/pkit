@@ -28,5 +28,19 @@ go.work.sum
 .env
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+bin/
+pkit
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# User data directory (for testing)
+.pkit/
