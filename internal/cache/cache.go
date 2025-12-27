@@ -1,8 +1,6 @@
 package cache
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -73,29 +71,3 @@ func WritePromptToCache(sourceID, promptName, content string) (string, error) {
 	return relativePath, nil
 }
 
-// ComputeFileHash computes SHA256 hash of a file for change detection.
-func ComputeFileHash(filePath string) (string, error) {
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", err
-	}
-
-	hash := sha256.Sum256(content)
-	return hex.EncodeToString(hash[:]), nil
-}
-
-// ClearSourceCache removes all cached files for a source.
-// Used when re-indexing or updating.
-func ClearSourceCache(sourceID string) error {
-	cachePath, err := GetSourceCachePath(sourceID)
-	if err != nil {
-		return err
-	}
-
-	// Remove directory and all contents
-	if err := os.RemoveAll(cachePath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to clear cache: %w", err)
-	}
-
-	return nil
-}
