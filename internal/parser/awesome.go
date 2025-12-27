@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/whisller/pkit/internal/cache"
 	"github.com/whisller/pkit/pkg/models"
 )
 
@@ -107,16 +108,24 @@ func (p *AwesomeChatGPTParser) ParsePrompts(source *models.Source) ([]models.Pro
 			tags = append(tags, strings.ToLower(promptType))
 		}
 
+		// Extract prompt content to cache file
+		cachePath, err := cache.WritePromptToCache(source.ID, name, promptText)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to cache prompt %s: %v\n", name, err)
+			// Continue with other prompts
+			rowNum++
+			continue
+		}
+
 		prompt := models.Prompt{
 			ID:          fmt.Sprintf("%s:%s", source.ID, name),
 			SourceID:    source.ID,
 			Name:        name,
-			Content:     promptText,
 			Description: description,
 			Tags:        tags,
 			Author:      contributor,
 			Version:     "",
-			FilePath:    "prompts.csv",
+			FilePath:    cachePath, // Path to cache file: cache/awesome/linux-terminal.md
 			Metadata: map[string]interface{}{
 				"act":      act,
 				"for_devs": forDevs,

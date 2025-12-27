@@ -82,7 +82,6 @@ func (p *FabricParser) ParsePrompts(source *models.Source) ([]models.Prompt, err
 			ID:          fmt.Sprintf("%s:%s", source.ID, name),
 			SourceID:    source.ID,
 			Name:        name,
-			Content:     string(content),
 			Description: description,
 			Tags:        []string{},
 			Author:      "",

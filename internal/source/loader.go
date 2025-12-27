@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/whisller/pkit/internal/config"
 	"github.com/whisller/pkit/pkg/models"
@@ -36,8 +37,20 @@ func LoadPromptContent(prompt *models.Prompt) error {
 		return fmt.Errorf("source not found: %s", prompt.SourceID)
 	}
 
-	// Construct the full file path
-	fullPath := filepath.Join(source.LocalPath, prompt.FilePath)
+	// Determine full file path based on whether it's a cache path or source path
+	var fullPath string
+
+	if strings.HasPrefix(prompt.FilePath, "cache/") {
+		// Cache path: resolve from ~/.pkit/
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get user home directory: %w", err)
+		}
+		fullPath = filepath.Join(homeDir, ".pkit", prompt.FilePath)
+	} else {
+		// Source path: resolve from source.LocalPath
+		fullPath = filepath.Join(source.LocalPath, prompt.FilePath)
+	}
 
 	// Read the file
 	content, err := os.ReadFile(fullPath)
