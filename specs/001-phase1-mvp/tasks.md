@@ -92,18 +92,18 @@ graph TD
 
 ### Tasks
 
-- [ ] T009 Define Source model in pkg/models/source.go per data-model.md
-- [ ] T010 [P] Define Prompt model in pkg/models/prompt.go per data-model.md
-- [ ] T011 [P] Define Bookmark model in pkg/models/bookmark.go per data-model.md
-- [ ] T012 [P] Define Config model in pkg/models/config.go per data-model.md
-- [ ] T013 Implement config loader in internal/config/config.go (load ~/.pkit/config.yml with goccy/go-yaml)
-- [ ] T014 Implement config saver in internal/config/config.go (atomic write with temp file + rename)
-- [ ] T015 [P] Implement keyring wrapper in internal/config/keyring.go (zalando/go-keyring with GITHUB_TOKEN fallback)
-- [ ] T016 [P] Implement rate limit tracker in internal/config/ratelimit.go (track GitHub API calls, warn at 80%)
-- [ ] T017 [P] Implement git wrapper in internal/source/git.go (go-git clone, pull, status operations)
-- [ ] T018 [P] Implement GitHub API client in internal/source/github.go (rate limit headers, authentication)
-- [ ] T019 Implement config validation in internal/config/validate.go (YAML integrity, version check)
-- [ ] T020 Implement bookmark YAML validation in internal/bookmark/validator.go (FR-024: fail-safe startup check)
+- [X] T009 Define Source model in pkg/models/source.go per data-model.md
+- [X] T010 [P] Define Prompt model in pkg/models/prompt.go per data-model.md
+- [X] T011 [P] Define Bookmark model in pkg/models/bookmark.go per data-model.md
+- [X] T012 [P] Define Config model in pkg/models/config.go per data-model.md
+- [X] T013 Implement config loader in internal/config/config.go (load ~/.pkit/config.yml with goccy/go-yaml)
+- [X] T014 Implement config saver in internal/config/config.go (atomic write with temp file + rename)
+- [X] T015 [P] Implement keyring wrapper in internal/config/keyring.go (zalando/go-keyring with GITHUB_TOKEN fallback)
+- [X] T016 [P] Implement rate limit tracker in internal/config/ratelimit.go (track GitHub API calls, warn at 80%)
+- [X] T017 [P] Implement git wrapper in internal/source/git.go (go-git clone, pull, status operations)
+- [X] T018 [P] Implement GitHub API client in internal/source/github.go (rate limit headers, authentication)
+- [X] T019 Implement config validation in internal/config/validate.go (YAML integrity, version check)
+- [X] T020 Implement bookmark YAML validation in internal/bookmark/validator.go (FR-024: fail-safe startup check)
 
 ---
 
