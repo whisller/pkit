@@ -123,16 +123,16 @@ graph TD
 
 ### Tasks
 
-- [ ] T021 [US1] Implement Parser interface in internal/parser/parser.go
-- [ ] T022 [P] [US1] Implement Fabric parser in internal/parser/fabric.go (parse patterns/*/system.md files)
-- [ ] T023 [P] [US1] Implement awesome-chatgpt-prompts parser in internal/parser/awesome.go (parse prompts.csv)
-- [ ] T024 [P] [US1] Implement generic markdown parser in internal/parser/markdown.go (parse *.md files)
-- [ ] T025 [US1] Implement format detection in internal/source/manager.go (auto-detect Fabric vs awesome vs markdown)
-- [ ] T026 [US1] Implement bleve indexer in internal/index/indexer.go (create index, batch insert, field boosting)
-- [ ] T027 [US1] Implement bleve search in internal/index/search.go (query, faceting, fuzzy matching)
-- [ ] T028 [US1] Implement source manager in internal/source/manager.go (subscribe, parallel clone with errgroup)
-- [ ] T029 [US1] Implement subscribe command in cmd/pkit/subscribe.go (Cobra command with --format, --verbose flags)
-- [ ] T030 [US1] Implement search command in cmd/pkit/search.go (traditional keyword search, table output)
+- [X] T021 [US1] Implement Parser interface in internal/parser/parser.go
+- [X] T022 [P] [US1] Implement Fabric parser in internal/parser/fabric.go (parse patterns/*/system.md files)
+- [X] T023 [P] [US1] Implement awesome-chatgpt-prompts parser in internal/parser/awesome.go (parse prompts.csv)
+- [X] T024 [P] [US1] Implement generic markdown parser in internal/parser/markdown.go (parse *.md files)
+- [X] T025 [US1] Implement format detection in internal/source/manager.go (auto-detect Fabric vs awesome vs markdown)
+- [X] T026 [US1] Implement bleve indexer in internal/index/indexer.go (create index, batch insert, field boosting)
+- [X] T027 [US1] Implement bleve search in internal/index/search.go (query, faceting, fuzzy matching)
+- [X] T028 [US1] Implement source manager in internal/source/manager.go (subscribe, parallel clone with errgroup)
+- [X] T029 [US1] Implement subscribe command in cmd/pkit/subscribe.go (Cobra command with --format, --verbose flags)
+- [X] T030 [US1] Implement search command in cmd/pkit/search.go (traditional keyword search, table output)
 
 **Parallel Execution Example**:
 ```bash

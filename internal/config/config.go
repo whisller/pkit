@@ -31,6 +31,30 @@ func GetConfigPath() (string, error) {
 	return configPath, nil
 }
 
+// GetSourcesPath returns the full path to the sources directory.
+// It uses ~/.pkit/sources by default.
+func GetSourcesPath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	sourcesPath := filepath.Join(homeDir, DefaultConfigDir, "sources")
+	return sourcesPath, nil
+}
+
+// GetIndexPath returns the full path to the index directory.
+// It uses ~/.pkit/index by default.
+func GetIndexPath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	indexPath := filepath.Join(homeDir, DefaultConfigDir, "index")
+	return indexPath, nil
+}
+
 // EnsureConfigDir ensures the configuration directory exists.
 // Creates ~/.pkit/ if it doesn't exist.
 func EnsureConfigDir() error {

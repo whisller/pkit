@@ -12,7 +12,7 @@ CMD_DIR=cmd/pkit
 build:
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BIN_DIR)
-	@go build -o $(BIN_DIR)/$(BINARY_NAME) $(CMD_DIR)/main.go
+	@go build -o $(BIN_DIR)/$(BINARY_NAME) ./$(CMD_DIR)
 	@echo "✓ Built $(BIN_DIR)/$(BINARY_NAME)"
 
 ## test: Run tests
@@ -23,7 +23,7 @@ test:
 ## install: Install pkit to GOPATH/bin
 install:
 	@echo "Installing $(BINARY_NAME)..."
-	@go install $(CMD_DIR)/main.go
+	@go install ./$(CMD_DIR)
 	@echo "✓ Installed $(BINARY_NAME)"
 
 ## clean: Clean build artifacts and test caches
