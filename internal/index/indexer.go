@@ -88,7 +88,7 @@ func buildIndexMapping() mapping.IndexMapping {
 	// Content field (text)
 	contentField := bleve.NewTextFieldMapping()
 	contentField.Analyzer = "en"
-	contentField.Store = false // Don't store full content in index
+	contentField.Store = false // Don't store full content - read from source file instead
 	contentField.IncludeInAll = true
 	docMapping.AddFieldMappingsAt("content", contentField)
 

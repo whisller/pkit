@@ -26,13 +26,8 @@ func (p *FabricParser) Name() string {
 
 // CanParse checks if the source path contains Fabric patterns.
 func (p *FabricParser) CanParse(sourcePath string) bool {
-	// Check for data/patterns directory (new Fabric structure)
+	// Check for data/patterns directory (Fabric structure)
 	patternsDir := filepath.Join(sourcePath, "data", "patterns")
-	if info, err := os.Stat(patternsDir); err == nil && info.IsDir() {
-		return true
-	}
-	// Fallback to patterns directory (old structure)
-	patternsDir = filepath.Join(sourcePath, "patterns")
 	info, err := os.Stat(patternsDir)
 	return err == nil && info.IsDir()
 }
@@ -41,16 +36,12 @@ func (p *FabricParser) CanParse(sourcePath string) bool {
 func (p *FabricParser) ParsePrompts(source *models.Source) ([]models.Prompt, error) {
 	var prompts []models.Prompt
 
-	// Walk source directory looking for system.md files in patterns/*/
-	// Try data/patterns first (new structure), then patterns (old structure)
+	// Fabric patterns are stored in data/patterns/*/system.md
 	patternsDir := filepath.Join(source.LocalPath, "data", "patterns")
-	if _, err := os.Stat(patternsDir); os.IsNotExist(err) {
-		patternsDir = filepath.Join(source.LocalPath, "patterns")
-	}
 
 	// Check if patterns directory exists
 	if _, err := os.Stat(patternsDir); os.IsNotExist(err) {
-		return nil, fmt.Errorf("patterns directory not found: %w", err)
+		return nil, fmt.Errorf("patterns directory not found at %s: %w", patternsDir, err)
 	}
 
 	entries, err := os.ReadDir(patternsDir)
@@ -96,7 +87,7 @@ func (p *FabricParser) ParsePrompts(source *models.Source) ([]models.Prompt, err
 			Tags:        []string{},
 			Author:      "",
 			Version:     "",
-			FilePath:    fmt.Sprintf("patterns/%s/system.md", name),
+			FilePath:    fmt.Sprintf("data/patterns/%s/system.md", name),
 			IndexedAt:   time.Now(),
 			UpdatedAt:   updatedAt,
 		}

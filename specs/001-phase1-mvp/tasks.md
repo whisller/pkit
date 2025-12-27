@@ -161,12 +161,12 @@ graph TD
 
 ### Tasks
 
-- [ ] T031 [US3] Implement prompt resolver in internal/bookmark/resolver.go (resolve alias or prompt-id to Prompt)
-- [ ] T032 [US3] Implement text output in internal/display/text.go (ONLY content to stdout, errors to stderr)
-- [ ] T033 [P] [US3] Implement JSON output in internal/display/json.go (--json flag support)
-- [ ] T034 [US3] Implement get command in cmd/pkit/get.go (resolve + output, <100ms target)
-- [ ] T035 [US3] Implement shorthand resolution in cmd/pkit/main.go (Cobra RunE fallback logic)
-- [ ] T036 [US3] Test piping with real tools: validate `pkit get review | claude`, `| llm`, `| fabric`, `| mods`
+- [X] T031 [US3] Implement prompt resolver in internal/bookmark/resolver.go (resolve alias or prompt-id to Prompt)
+- [X] T032 [US3] Implement text output in internal/display/text.go (ONLY content to stdout, errors to stderr)
+- [X] T033 [P] [US3] Implement JSON output in internal/display/json.go (--json flag support)
+- [X] T034 [US3] Implement get command in cmd/pkit/get.go (resolve + output, <100ms target)
+- [X] T035 [US3] Implement shorthand resolution in cmd/pkit/main.go (Cobra RunE fallback logic)
+- [X] T036 [US3] Test piping with real tools: validate `pkit get review | claude`, `| llm`, `| fabric`, `| mods`
 
 **Testing Priority**: T036 is CRITICAL - must manually verify pipe compatibility with all 4 execution tools.
 

@@ -144,6 +144,8 @@ func (i *Indexer) hitToPrompt(hit *search.DocumentMatch) (models.Prompt, error) 
 		prompt.Author = val
 	}
 
+	// Note: Content is NOT stored in index - it will be loaded from source file when needed
+
 	// Tags might be stored as interface{} slice
 	if val, ok := hit.Fields["tags"]; ok {
 		if tags, ok := val.([]interface{}); ok {

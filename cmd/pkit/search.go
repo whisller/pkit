@@ -132,13 +132,12 @@ func outputTable(results []index.SearchResult) error {
 	)
 
 	// Set header
-	table.Header("SOURCE", "NAME", "DESCRIPTION")
+	table.Header("ID", "DESCRIPTION")
 
 	// Add rows
 	for _, result := range results {
 		table.Append(
-			result.Prompt.SourceID,
-			result.Prompt.Name,
+			result.Prompt.ID,
 			result.Prompt.Description,
 		)
 	}
