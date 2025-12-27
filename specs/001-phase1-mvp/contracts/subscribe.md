@@ -64,7 +64,7 @@ pkit subscribe <source> [flags]
   Prompts: 287
   Location: ~/.pkit/sources/fabric
 
-Use 'pkit list --source fabric' to see available prompts
+Use 'pkit search "" --source fabric' to see all prompts from this source
 ```
 
 ### Progress (stderr)
@@ -261,8 +261,8 @@ Use 'pkit subscribe custom --debug' to see detailed errors
 
 ## Related Commands
 
-- `pkit list`: List prompts from subscribed sources
-- `pkit search`: Search across subscribed sources
+- `pkit search`: Search across subscribed sources (use with empty query to list all)
+- `pkit find`: Interactive prompt finder
 - `pkit update`: Check for updates to subscribed sources
 - `pkit upgrade`: Upgrade subscribed sources
 - `pkit unsubscribe`: Remove a subscribed source

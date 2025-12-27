@@ -7,9 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 	"github.com/whisller/pkit/internal/config"
 	"github.com/whisller/pkit/internal/index"
+	"golang.org/x/term"
 )
 
 var searchCmd = &cobra.Command{
@@ -115,22 +117,36 @@ Then search:
 }
 
 func outputTable(results []index.SearchResult) error {
-	// Print header
-	fmt.Println("┌─────────────┬──────────────────┬────────────────────────────────────┐")
-	fmt.Println("│ SOURCE      │ NAME             │ DESCRIPTION                         │")
-	fmt.Println("├─────────────┼──────────────────┼────────────────────────────────────┤")
-
-	// Print results
-	for _, result := range results {
-		source := truncateString(result.Prompt.SourceID, 11)
-		name := truncateString(result.Prompt.Name, 16)
-		desc := truncateString(result.Prompt.Description, 36)
-
-		fmt.Printf("│ %-11s │ %-16s │ %-36s │\n", source, name, desc)
+	// Get terminal width
+	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || termWidth < 60 {
+		termWidth = 120 // Default fallback
 	}
 
-	// Print footer
-	fmt.Println("└─────────────┴──────────────────┴────────────────────────────────────┘")
+	table := tablewriter.NewWriter(os.Stdout)
+
+	// Configure table to fit terminal width with text wrapping
+	table.Options(
+		tablewriter.WithTableMax(termWidth),
+		tablewriter.WithRowAutoWrap(1),
+	)
+
+	// Set header
+	table.Header("SOURCE", "NAME", "DESCRIPTION")
+
+	// Add rows
+	for _, result := range results {
+		table.Append(
+			result.Prompt.SourceID,
+			result.Prompt.Name,
+			result.Prompt.Description,
+		)
+	}
+
+	// Render the table
+	if err := table.Render(); err != nil {
+		return fmt.Errorf("failed to render table: %w", err)
+	}
 
 	// Print summary
 	fmt.Fprintf(os.Stderr, "\nFound %d results\n", len(results))
@@ -182,15 +198,4 @@ func outputJSON(results []index.SearchResult) error {
 	}
 
 	return nil
-}
-
-// truncateString truncates a string to maxLen, adding "..." if truncated
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	if maxLen < 3 {
-		return s[:maxLen]
-	}
-	return s[:maxLen-3] + "..."
 }

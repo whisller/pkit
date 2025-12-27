@@ -23,13 +23,13 @@ A developer wants to access prompts from Fabric and awesome-chatgpt-prompts repo
 
 **Why this priority**: This is the foundation of pkit's value proposition - aggregating multiple prompt sources. Without this, there's no product.
 
-**Independent Test**: User can run `pkit subscribe fabric/patterns`, then `pkit list` and see Fabric prompts. They can search across subscribed sources using `pkit search "code review"` and view details with `pkit show`.
+**Independent Test**: User can run `pkit subscribe fabric/patterns`, then `pkit search ""` and see Fabric prompts. They can search across subscribed sources using `pkit search "code review"` and view details with `pkit show`.
 
 **Acceptance Scenarios**:
 
 1. **Given** user has pkit installed, **When** they run `pkit subscribe fabric/patterns`, **Then** pkit clones the repository to ~/.pkit/sources/ and indexes all prompts
 2. **Given** user has subscribed to 2+ sources, **When** they run `pkit search "summarize"`, **Then** they see matching prompts from all subscribed sources with source identifiers (e.g., "fabric:summarize")
-3. **Given** user has subscribed sources, **When** they run `pkit list`, **Then** they see a table listing all available prompts with source, name, and brief description
+3. **Given** user has subscribed sources, **When** they run `pkit search ""`, **Then** they see a table listing all available prompts with source, name, and brief description
 4. **Given** user found a prompt via search, **When** they run `pkit show fabric:code-review`, **Then** they see the full prompt text, description, source, and metadata
 5. **Given** user subscribes to an invalid or unreachable repository, **When** subscription fails, **Then** they see a clear error message explaining the issue
 

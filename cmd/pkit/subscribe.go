@@ -226,7 +226,7 @@ Options:
 	fmt.Printf("  Format: %s\n", src.Format)
 	fmt.Printf("  Prompts: %d\n", src.PromptCount)
 	fmt.Printf("  Location: %s\n\n", localPath)
-	fmt.Printf("Use 'pkit list --source %s' to see available prompts\n", src.ID)
+	fmt.Printf("Use 'pkit search \"\" --source %s' to see all prompts from this source\n", src.ID)
 
 	return nil
 }
@@ -333,11 +333,24 @@ func subscribeMultipleSources(mgr *source.Manager, indexer *index.Indexer, cfg *
 	return nil
 }
 
+// Repository aliases for common prompt sources
+var repositoryAliases = map[string]string{
+	"fabric":         "danielmiessler/fabric",
+	"fabric/patterns": "danielmiessler/fabric",
+	"awesome":        "f/awesome-chatgpt-prompts",
+	"awesome-chatgpt": "f/awesome-chatgpt-prompts",
+}
+
 // parseSourceURL converts short form or full URL to full GitHub URL
 func parseSourceURL(source string) (string, error) {
 	// Already a full URL
 	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
 		return source, nil
+	}
+
+	// Check if it's a known alias
+	if aliasedRepo, ok := repositoryAliases[strings.ToLower(source)]; ok {
+		return fmt.Sprintf("https://github.com/%s", aliasedRepo), nil
 	}
 
 	// Short form: org/repo
@@ -351,6 +364,11 @@ func parseSourceURL(source string) (string, error) {
 	return "", fmt.Errorf(`Invalid source format: "%s"
 
 Expected formats:
-  Short form: <org>/<repo> (e.g., fabric/patterns)
-  Full URL: https://github.com/<org>/<repo>`, source)
+  Alias: fabric, awesome (see common aliases)
+  Short form: <org>/<repo> (e.g., danielmiessler/fabric)
+  Full URL: https://github.com/<org>/<repo>
+
+Common aliases:
+  fabric, fabric/patterns → danielmiessler/fabric
+  awesome, awesome-chatgpt → f/awesome-chatgpt-prompts`, source)
 }

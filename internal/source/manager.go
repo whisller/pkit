@@ -30,7 +30,10 @@ func NewManager(token string) *Manager {
 // DetectSourceFormat auto-detects the format of a source repository.
 // Checks for Fabric patterns, awesome-chatgpt CSV, or defaults to markdown.
 func DetectSourceFormat(localPath string) string {
-	// Check for Fabric patterns structure
+	// Check for Fabric patterns structure (new: data/patterns or old: patterns)
+	if _, err := os.Stat(filepath.Join(localPath, "data", "patterns")); err == nil {
+		return "fabric_pattern"
+	}
 	if _, err := os.Stat(filepath.Join(localPath, "patterns")); err == nil {
 		return "fabric_pattern"
 	}
