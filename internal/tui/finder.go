@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -824,47 +825,18 @@ func (m FinderModel) View() string {
 		return m.renderInputDialog()
 	}
 
-	// Styles
-	activeStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("205")).
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("205")).
-		Padding(0, 1)
-
-	inactiveStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		Padding(0, 1)
-
-	sectionStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("39")).
-		MarginTop(1)
-
+	// Calculate dimensions
 	filterWidth := int(float64(m.width) * 0.3)
+	if filterWidth < 30 {
+		filterWidth = 30
+	}
 	listWidth := m.width - filterWidth - 4
 
 	// Build filters panel
-	filtersPanel := m.renderFiltersPanel(filterWidth, sectionStyle)
+	filtersPanel := m.renderFiltersPanel(filterWidth)
 
-	// Style filters panel based on active state
-	if m.activePanel == PanelFilters {
-		filtersPanel = activeStyle.Width(filterWidth).Render(filtersPanel)
-	} else {
-		filtersPanel = inactiveStyle.Width(filterWidth).Render(filtersPanel)
-	}
-
-	// Build list panel
-	listPanel := m.list.View()
-
-	// Style list panel based on active state
-	if m.activePanel == PanelList {
-		listPanel = activeStyle.Width(listWidth).Render(listPanel)
-	} else {
-		listPanel = inactiveStyle.Width(listWidth).Render(listPanel)
-	}
+	// Build list panel with directory info
+	listPanel := m.renderListPanel(listWidth)
 
 	// Combine panels side by side
 	mainView := lipgloss.JoinHorizontal(lipgloss.Top, filtersPanel, listPanel)
@@ -961,16 +933,26 @@ func (m *FinderModel) renderInputDialog() string {
 }
 
 // renderFiltersPanel renders the left filters panel
-func (m *FinderModel) renderFiltersPanel(width int, sectionStyle lipgloss.Style) string {
-	var s strings.Builder
+func (m *FinderModel) renderFiltersPanel(width int) string {
+	// Title style for panel header
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("205")).
+		Padding(0, 1)
 
-	s.WriteString("FILTERS\n\n")
+	// Section header style
+	sectionStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("39")).
+		MarginTop(1)
 
+	// Content builder
+	var content strings.Builder
 	cursor := 0
 
 	// Sources section
-	s.WriteString(sectionStyle.Render("Sources"))
-	s.WriteString("\n")
+	content.WriteString(sectionStyle.Render("Sources"))
+	content.WriteString("\n")
 	for _, source := range m.availableSources {
 		checkbox := "[ ]"
 		if m.selectedSources[source] {
@@ -983,15 +965,15 @@ func (m *FinderModel) renderFiltersPanel(width int, sectionStyle lipgloss.Style)
 		} else {
 			line = "  " + line
 		}
-		s.WriteString(line + "\n")
+		content.WriteString(line + "\n")
 		cursor++
 	}
 
 	// Tags section
 	if len(m.availableTags) > 0 {
-		s.WriteString("\n")
-		s.WriteString(sectionStyle.Render("Tags"))
-		s.WriteString("\n")
+		content.WriteString("\n")
+		content.WriteString(sectionStyle.Render("Tags"))
+		content.WriteString("\n")
 		for _, tag := range m.availableTags {
 			checkbox := "[ ]"
 			if m.selectedTags[tag] {
@@ -1004,15 +986,15 @@ func (m *FinderModel) renderFiltersPanel(width int, sectionStyle lipgloss.Style)
 			} else {
 				line = "  " + line
 			}
-			s.WriteString(line + "\n")
+			content.WriteString(line + "\n")
 			cursor++
 		}
 	}
 
 	// Bookmarked toggle
-	s.WriteString("\n")
-	s.WriteString(sectionStyle.Render("Other"))
-	s.WriteString("\n")
+	content.WriteString("\n")
+	content.WriteString(sectionStyle.Render("Other"))
+	content.WriteString("\n")
 	checkbox := "[ ]"
 	if m.showBookmarked {
 		checkbox = "[✓]"
@@ -1023,12 +1005,72 @@ func (m *FinderModel) renderFiltersPanel(width int, sectionStyle lipgloss.Style)
 	} else {
 		line = "  " + line
 	}
-	s.WriteString(line + "\n")
+	content.WriteString(line + "\n")
 
 	// Stats
-	s.WriteString(fmt.Sprintf("\nShowing: %d/%d prompts", len(m.filteredPrompts), len(m.allPrompts)))
+	statsStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		MarginTop(1)
+	content.WriteString(statsStyle.Render(fmt.Sprintf("\nShowing: %d/%d prompts", len(m.filteredPrompts), len(m.allPrompts))))
 
-	return s.String()
+	// Border style
+	var borderColor lipgloss.Color
+	if m.activePanel == PanelFilters {
+		borderColor = lipgloss.Color("205")
+	} else {
+		borderColor = lipgloss.Color("240")
+	}
+
+	borderStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(borderColor).
+		Padding(1).
+		Width(width - 2)
+
+	// Add title and wrap in border
+	panel := fmt.Sprintf("%s\n\n%s", titleStyle.Render("FILTERS"), content.String())
+	return borderStyle.Render(panel)
+}
+
+// renderListPanel renders the right list panel with directory info
+func (m *FinderModel) renderListPanel(width int) string {
+	// Title style for panel header
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("205")).
+		Padding(0, 1)
+
+	// Get current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "unknown"
+	}
+
+	// Directory info style
+	dirStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		Italic(true)
+
+	// Border style
+	var borderColor lipgloss.Color
+	if m.activePanel == PanelList {
+		borderColor = lipgloss.Color("205")
+	} else {
+		borderColor = lipgloss.Color("240")
+	}
+
+	borderStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(borderColor).
+		Padding(1).
+		Width(width - 2)
+
+	// Build panel content
+	listContent := m.list.View()
+	dirInfo := dirStyle.Render(fmt.Sprintf("📁 %s", cwd))
+
+	panel := fmt.Sprintf("%s\n\n%s\n\n%s", titleStyle.Render("PROMPTS"), listContent, dirInfo)
+	return borderStyle.Render(panel)
 }
 
 // SelectedID returns the selected prompt ID
