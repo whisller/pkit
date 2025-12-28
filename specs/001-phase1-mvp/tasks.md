@@ -244,7 +244,7 @@ graph TD
 
 ### Tasks
 
-- [ ] T050 Implement find command in cmd/pkit/find.go (Bubbletea TUI with real-time filtering, Ctrl+S bookmark, Ctrl+T tags, Ctrl+G get)
+- [X] T050 Implement find command in cmd/pkit/find.go (Bubbletea TUI with real-time filtering, Ctrl+S bookmark, Ctrl+T tags, Ctrl+G get)
 - [X] T051 [P] Implement show command in cmd/pkit/show.go (display full prompt with metadata, formatted output)
 - [X] T052 [P] Add help and version commands to cmd/pkit/main.go (Cobra built-in help + custom version)
 
