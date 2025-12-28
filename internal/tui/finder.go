@@ -43,6 +43,7 @@ const (
 	ModeAddingAlias
 	ModeAddingNotes
 	ModeRemovingTag
+	ModeViewingPrompt
 )
 
 // KeyMap defines keyboard shortcuts
@@ -55,6 +56,7 @@ type KeyMap struct {
 	Alias        key.Binding
 	RemoveTag    key.Binding
 	Notes        key.Binding
+	Preview      key.Binding
 	Up           key.Binding
 	Down         key.Binding
 	SwitchPanel  key.Binding
@@ -95,6 +97,10 @@ func DefaultKeyMap() KeyMap {
 		Notes: key.NewBinding(
 			key.WithKeys("ctrl+n"),
 			key.WithHelp("ctrl+n", "add notes"),
+		),
+		Preview: key.NewBinding(
+			key.WithKeys("p", "ctrl+p"),
+			key.WithHelp("p", "preview prompt"),
 		),
 		Up: key.NewBinding(
 			key.WithKeys("up", "k"),
@@ -151,9 +157,11 @@ type FinderModel struct {
 	textInput       textinput.Model
 	statusMessage   string
 	statusTimeout   time.Time
-	currentPromptID string // ID of prompt being operated on
-	promptTags      []string // Tags for current prompt (for removal)
+	currentPromptID string          // ID of prompt being operated on
+	currentPrompt   *models.Prompt  // Full prompt for preview
+	promptTags      []string        // Tags for current prompt (for removal)
 	tagRemoveCursor int
+	previewScroll   int             // Scroll position for preview
 
 	// Action state
 	selectedID     string
@@ -400,15 +408,47 @@ func (m FinderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // handleInputMode handles input when in an input mode
 func (m FinderModel) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "ctrl+c":
+	case "esc", "ctrl+c", "q":
 		// Cancel input
 		m.inputMode = ModeNormal
 		m.textInput.SetValue("")
+		m.previewScroll = 0
 		return m, nil
 
 	case "enter":
-		// Process input based on mode
-		return m.processInput()
+		// Process input based on mode (not for preview)
+		if m.inputMode != ModeViewingPrompt {
+			return m.processInput()
+		}
+		return m, nil
+	}
+
+	// Handle preview mode scrolling
+	if m.inputMode == ModeViewingPrompt {
+		switch msg.String() {
+		case "up", "k":
+			m.previewScroll--
+			if m.previewScroll < 0 {
+				m.previewScroll = 0
+			}
+			return m, nil
+		case "down", "j":
+			m.previewScroll++
+			return m, nil
+		case "pgup":
+			m.previewScroll -= 10
+			if m.previewScroll < 0 {
+				m.previewScroll = 0
+			}
+			return m, nil
+		case "pgdown":
+			m.previewScroll += 10
+			return m, nil
+		case "home":
+			m.previewScroll = 0
+			return m, nil
+		}
+		return m, nil
 	}
 
 	// Handle tag removal mode differently (list navigation)
@@ -710,6 +750,15 @@ func (m FinderModel) updateListPanel(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.textInput.Focus()
 			return m, nil
 		}
+
+	case key.Matches(msg, m.keys.Preview):
+		// Preview prompt
+		if selectedPrompt != nil {
+			m.currentPrompt = &selectedPrompt.Prompt
+			m.inputMode = ModeViewingPrompt
+			m.previewScroll = 0
+			return m, nil
+		}
 	}
 
 	// Update list
@@ -860,7 +909,7 @@ func (m FinderModel) View() string {
 	if m.activePanel == PanelFilters {
 		help = "↑/↓: navigate | space: toggle | tab: switch panel | q: quit"
 	} else {
-		help = "enter: select | ctrl+g: get | ctrl+s: bookmark | ctrl+t: tags | ctrl+a: alias | ctrl+r: remove tags | tab: filters"
+		help = "p: preview | enter: select | ctrl+g: get | ctrl+s: bookmark | ctrl+t: tags | ctrl+a: alias | tab: filters"
 	}
 
 	return fmt.Sprintf("%s\n%s%s", mainView, statusView, helpStyle.Render(help))
@@ -916,6 +965,12 @@ func (m *FinderModel) renderInputDialog() string {
 			}
 			content.WriteString(fmt.Sprintf("%s%s\n", cursor, tag))
 		}
+
+	case ModeViewingPrompt:
+		if m.currentPrompt == nil {
+			return ""
+		}
+		return m.renderPromptPreview()
 	}
 
 	dialog := fmt.Sprintf("%s\n\n%s\n\n%s",
@@ -929,6 +984,155 @@ func (m *FinderModel) renderInputDialog() string {
 		lipgloss.Center,
 		lipgloss.Center,
 		dialogStyle.Render(dialog),
+	)
+}
+
+// renderPromptPreview renders the prompt preview dialog
+func (m *FinderModel) renderPromptPreview() string {
+	if m.currentPrompt == nil {
+		return ""
+	}
+
+	// Styles
+	dialogStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("205")).
+		Padding(1, 2)
+
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("205"))
+
+	metaStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		Italic(true)
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		MarginTop(1)
+
+	contentStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252"))
+
+	// Calculate available dimensions (80% of screen)
+	dialogWidth := int(float64(m.width) * 0.8)
+	if dialogWidth > 100 {
+		dialogWidth = 100
+	}
+	if dialogWidth < 60 {
+		dialogWidth = 60
+	}
+
+	dialogHeight := int(float64(m.height) * 0.8)
+	if dialogHeight > 40 {
+		dialogHeight = 40
+	}
+	if dialogHeight < 20 {
+		dialogHeight = 20
+	}
+
+	// Build metadata
+	var meta strings.Builder
+	meta.WriteString(fmt.Sprintf("ID: %s\n", m.currentPrompt.ID))
+	if m.currentPrompt.Name != "" {
+		meta.WriteString(fmt.Sprintf("Name: %s\n", m.currentPrompt.Name))
+	}
+	if m.currentPrompt.Description != "" {
+		meta.WriteString(fmt.Sprintf("Description: %s\n", m.currentPrompt.Description))
+	}
+	if len(m.currentPrompt.Tags) > 0 {
+		meta.WriteString(fmt.Sprintf("Tags: %s\n", strings.Join(m.currentPrompt.Tags, ", ")))
+	}
+
+	// Get user tags if any
+	tagMgr := tag.NewManager()
+	userTags, _ := tagMgr.GetTags(m.currentPrompt.ID)
+	if len(userTags) > 0 {
+		meta.WriteString(fmt.Sprintf("User Tags: %s\n", strings.Join(userTags, ", ")))
+	}
+
+	// Check if bookmarked
+	if m.bookmarkedIDs[m.currentPrompt.ID] {
+		meta.WriteString("Bookmarked: Yes\n")
+	}
+
+	// Split content into lines for scrolling
+	contentLines := strings.Split(m.currentPrompt.Content, "\n")
+
+	// Calculate content area height (dialog height - metadata - title - help - padding)
+	contentHeight := dialogHeight - 10
+
+	// Apply scroll offset
+	startLine := m.previewScroll
+	if startLine >= len(contentLines) {
+		startLine = len(contentLines) - 1
+	}
+	if startLine < 0 {
+		startLine = 0
+	}
+
+	endLine := startLine + contentHeight
+	if endLine > len(contentLines) {
+		endLine = len(contentLines)
+	}
+
+	visibleLines := contentLines[startLine:endLine]
+
+	// Build content with word wrapping
+	var wrappedContent strings.Builder
+	wrapWidth := dialogWidth - 8 // Account for padding and borders
+	for _, line := range visibleLines {
+		if len(line) <= wrapWidth {
+			wrappedContent.WriteString(line + "\n")
+		} else {
+			// Simple word wrap
+			words := strings.Fields(line)
+			currentLine := ""
+			for _, word := range words {
+				if len(currentLine)+len(word)+1 <= wrapWidth {
+					if currentLine != "" {
+						currentLine += " "
+					}
+					currentLine += word
+				} else {
+					if currentLine != "" {
+						wrappedContent.WriteString(currentLine + "\n")
+					}
+					currentLine = word
+				}
+			}
+			if currentLine != "" {
+				wrappedContent.WriteString(currentLine + "\n")
+			}
+		}
+	}
+
+	// Scroll indicator
+	var scrollInfo string
+	if len(contentLines) > contentHeight {
+		scrollInfo = fmt.Sprintf(" (showing %d-%d of %d lines)", startLine+1, endLine, len(contentLines))
+	}
+
+	// Build dialog
+	var dialog strings.Builder
+	dialog.WriteString(titleStyle.Render(fmt.Sprintf("Prompt Preview%s", scrollInfo)))
+	dialog.WriteString("\n\n")
+	dialog.WriteString(metaStyle.Render(meta.String()))
+	dialog.WriteString("\n")
+	dialog.WriteString(strings.Repeat("─", dialogWidth-4))
+	dialog.WriteString("\n\n")
+	dialog.WriteString(contentStyle.Render(wrappedContent.String()))
+	dialog.WriteString("\n")
+	dialog.WriteString(helpStyle.Render("↑/↓: scroll | PgUp/PgDn: page | Home: top | q/Esc: close"))
+
+	styledDialog := dialogStyle.Width(dialogWidth).Height(dialogHeight).Render(dialog.String())
+
+	return lipgloss.Place(
+		m.width,
+		m.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		styledDialog,
 	)
 }
 
