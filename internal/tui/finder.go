@@ -382,10 +382,17 @@ func (m FinderModel) updateListPanel(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // getFilterItemCount returns total number of filterable items
 func (m *FinderModel) getFilterItemCount() int {
-	// Sources + separator + Tags + separator + Bookmarked
-	count := len(m.availableSources) + 1
-	count += len(m.availableTags) + 1
-	count += 1 // Bookmarked toggle
+	// Sources
+	count := len(m.availableSources)
+
+	// Tags (only add if we have tags)
+	if len(m.availableTags) > 0 {
+		count += len(m.availableTags)
+	}
+
+	// Bookmarked toggle
+	count += 1
+
 	return count
 }
 
@@ -398,14 +405,16 @@ func (m *FinderModel) updateFilterSection() {
 		m.filterSection = FilterSources
 		return
 	}
-	cursor += len(m.availableSources) + 1 // +1 for separator
+	cursor += len(m.availableSources)
 
-	// Tags section
-	if m.filterCursor < cursor+len(m.availableTags) {
-		m.filterSection = FilterTags
-		return
+	// Tags section (only if we have tags)
+	if len(m.availableTags) > 0 {
+		if m.filterCursor < cursor+len(m.availableTags) {
+			m.filterSection = FilterTags
+			return
+		}
+		cursor += len(m.availableTags)
 	}
-	cursor += len(m.availableTags) + 1 // +1 for separator
 
 	// Bookmarked section
 	m.filterSection = FilterBookmarked
@@ -421,16 +430,18 @@ func (m *FinderModel) toggleCurrentFilter() {
 		m.selectedSources[source] = !m.selectedSources[source]
 		return
 	}
-	cursor += len(m.availableSources) + 1
+	cursor += len(m.availableSources)
 
-	// Tags section
-	if m.filterCursor < cursor+len(m.availableTags) {
-		tagIdx := m.filterCursor - cursor
-		tag := m.availableTags[tagIdx]
-		m.selectedTags[tag] = !m.selectedTags[tag]
-		return
+	// Tags section (only if we have tags)
+	if len(m.availableTags) > 0 {
+		if m.filterCursor < cursor+len(m.availableTags) {
+			tagIdx := m.filterCursor - cursor
+			tag := m.availableTags[tagIdx]
+			m.selectedTags[tag] = !m.selectedTags[tag]
+			return
+		}
+		cursor += len(m.availableTags)
 	}
-	cursor += len(m.availableTags) + 1
 
 	// Bookmarked toggle
 	m.showBookmarked = !m.showBookmarked
@@ -528,7 +539,6 @@ func (m *FinderModel) renderFiltersPanel(width int, sectionStyle lipgloss.Style)
 		s.WriteString(line + "\n")
 		cursor++
 	}
-	cursor++ // separator
 
 	// Tags section
 	if len(m.availableTags) > 0 {
@@ -550,7 +560,6 @@ func (m *FinderModel) renderFiltersPanel(width int, sectionStyle lipgloss.Style)
 			s.WriteString(line + "\n")
 			cursor++
 		}
-		cursor++ // separator
 	}
 
 	// Bookmarked toggle
