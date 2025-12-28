@@ -179,6 +179,11 @@ func (i *Indexer) DeletePromptsBySource(sourceID string) error {
 	return nil
 }
 
+// DeleteBySource is an alias for DeletePromptsBySource.
+func (i *Indexer) DeleteBySource(sourceID string) error {
+	return i.DeletePromptsBySource(sourceID)
+}
+
 // ReindexSource re-indexes all prompts from a source.
 // Deletes old prompts and indexes new ones.
 func (i *Indexer) ReindexSource(sourceID string, prompts []models.Prompt) error {

@@ -124,6 +124,12 @@ func (m *Manager) SubscribeMultiple(sources []struct {
 	return results, nil
 }
 
+// CheckForUpdates checks if a source has updates available.
+// Returns true if updates are available, along with the remote commit SHA.
+func (m *Manager) CheckForUpdates(source *models.Source) (hasUpdates bool, remoteSHA string, err error) {
+	return CheckForUpdates(source.LocalPath, m.token)
+}
+
 // Update updates an existing source repository.
 // Pulls latest changes and returns the new commit SHA.
 func (m *Manager) Update(source *models.Source) (string, error) {

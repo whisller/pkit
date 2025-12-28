@@ -222,10 +222,10 @@ graph TD
 
 ### Tasks
 
-- [ ] T046 [US4] Implement update checker in internal/source/manager.go (git fetch, compare commit SHAs)
-- [ ] T047 [US4] Implement status command in cmd/pkit/status.go (show sources, prompt counts, update availability, rate limits)
-- [ ] T048 [US4] Implement upgrade command in cmd/pkit/upgrade.go (git pull + re-index, --all flag for parallel)
-- [ ] T049 [US4] Update index/indexer.go to handle re-indexing (clear old prompts from source, re-parse, batch update)
+- [X] T046 [US4] Implement update checker in internal/source/manager.go (git fetch, compare commit SHAs)
+- [X] T047 [US4] Implement status command in cmd/pkit/status.go (show sources, prompt counts, update availability, rate limits)
+- [X] T048 [US4] Implement upgrade command in cmd/pkit/upgrade.go (git pull + re-index, --all flag for parallel)
+- [X] T049 [US4] Update index/indexer.go to handle re-indexing (clear old prompts from source, re-parse, batch update)
 
 ---
 
@@ -245,8 +245,8 @@ graph TD
 ### Tasks
 
 - [ ] T050 Implement find command in cmd/pkit/find.go (Bubbletea TUI with real-time filtering, Ctrl+S bookmark, Ctrl+T tags, Ctrl+G get)
-- [ ] T051 [P] Implement show command in cmd/pkit/show.go (display full prompt with metadata, formatted output)
-- [ ] T052 [P] Add help and version commands to cmd/pkit/main.go (Cobra built-in help + custom version)
+- [X] T051 [P] Implement show command in cmd/pkit/show.go (display full prompt with metadata, formatted output)
+- [X] T052 [P] Add help and version commands to cmd/pkit/main.go (Cobra built-in help + custom version)
 
 ---
 
