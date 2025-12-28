@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/whisller/pkit/internal/bookmark"
@@ -31,6 +33,17 @@ const (
 	FilterBookmarked
 )
 
+// InputMode represents the current input mode
+type InputMode int
+
+const (
+	ModeNormal InputMode = iota
+	ModeAddingTag
+	ModeAddingAlias
+	ModeAddingNotes
+	ModeRemovingTag
+)
+
 // KeyMap defines keyboard shortcuts
 type KeyMap struct {
 	Quit         key.Binding
@@ -38,6 +51,9 @@ type KeyMap struct {
 	Get          key.Binding
 	Bookmark     key.Binding
 	Tag          key.Binding
+	Alias        key.Binding
+	RemoveTag    key.Binding
+	Notes        key.Binding
 	Up           key.Binding
 	Down         key.Binding
 	SwitchPanel  key.Binding
@@ -61,11 +77,23 @@ func DefaultKeyMap() KeyMap {
 		),
 		Bookmark: key.NewBinding(
 			key.WithKeys("ctrl+s"),
-			key.WithHelp("ctrl+s", "bookmark"),
+			key.WithHelp("ctrl+s", "toggle bookmark"),
 		),
 		Tag: key.NewBinding(
 			key.WithKeys("ctrl+t"),
 			key.WithHelp("ctrl+t", "add tags"),
+		),
+		Alias: key.NewBinding(
+			key.WithKeys("ctrl+a"),
+			key.WithHelp("ctrl+a", "add alias"),
+		),
+		RemoveTag: key.NewBinding(
+			key.WithKeys("ctrl+r"),
+			key.WithHelp("ctrl+r", "remove tags"),
+		),
+		Notes: key.NewBinding(
+			key.WithKeys("ctrl+n"),
+			key.WithHelp("ctrl+n", "add notes"),
 		),
 		Up: key.NewBinding(
 			key.WithKeys("up", "k"),
@@ -116,6 +144,15 @@ type FinderModel struct {
 	selectedTags     map[string]bool
 	showBookmarked   bool
 	bookmarkedIDs    map[string]bool
+
+	// Input mode
+	inputMode       InputMode
+	textInput       textinput.Model
+	statusMessage   string
+	statusTimeout   time.Time
+	currentPromptID string // ID of prompt being operated on
+	promptTags      []string // Tags for current prompt (for removal)
+	tagRemoveCursor int
 
 	// Action state
 	selectedID     string
@@ -177,6 +214,12 @@ func NewFinderModel(prompts []models.Prompt) FinderModel {
 	l.SetFilteringEnabled(true)
 	l.SetShowStatusBar(true)
 
+	// Create text input for dialogs
+	ti := textinput.New()
+	ti.Placeholder = "Enter value..."
+	ti.CharLimit = 200
+	ti.Width = 50
+
 	m := FinderModel{
 		list:             l,
 		keys:             DefaultKeyMap(),
@@ -190,6 +233,8 @@ func NewFinderModel(prompts []models.Prompt) FinderModel {
 		selectedTags:     make(map[string]bool),
 		showBookmarked:   false,
 		bookmarkedIDs:    bookmarkedIDs,
+		inputMode:        ModeNormal,
+		textInput:        ti,
 	}
 
 	// Apply initial filtering
@@ -249,6 +294,42 @@ func (m *FinderModel) applyFilters() {
 	m.list.SetItems(items)
 }
 
+// reloadData reloads bookmarks and tags from disk
+func (m *FinderModel) reloadData() {
+	// Reload bookmarks
+	bookmarkedIDs := make(map[string]bool)
+	bookmarks, _ := bookmark.LoadBookmarks()
+	for _, bm := range bookmarks {
+		bookmarkedIDs[bm.PromptID] = true
+	}
+	m.bookmarkedIDs = bookmarkedIDs
+
+	// Reload tags
+	tagSet := make(map[string]bool)
+	tagMgr := tag.NewManager()
+	allTags, _ := tagMgr.ListAllTags()
+	for _, pt := range allTags {
+		for _, t := range pt.Tags {
+			tagSet[t] = true
+		}
+	}
+	tags := make([]string, 0, len(tagSet))
+	for t := range tagSet {
+		tags = append(tags, t)
+	}
+	sort.Strings(tags)
+	m.availableTags = tags
+
+	// Reapply filters
+	m.applyFilters()
+}
+
+// setStatus sets a status message with timeout
+func (m *FinderModel) setStatus(msg string, duration time.Duration) {
+	m.statusMessage = msg
+	m.statusTimeout = time.Now().Add(duration)
+}
+
 // Init initializes the model
 func (m FinderModel) Init() tea.Cmd {
 	return nil
@@ -256,6 +337,12 @@ func (m FinderModel) Init() tea.Cmd {
 
 // Update handles messages
 func (m FinderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Clear status message if timeout expired
+	if !m.statusTimeout.IsZero() && time.Now().After(m.statusTimeout) {
+		m.statusMessage = ""
+		m.statusTimeout = time.Time{}
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -270,6 +357,11 @@ func (m FinderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// Handle input modes
+		if m.inputMode != ModeNormal {
+			return m.handleInputMode(msg)
+		}
+
 		// Global shortcuts
 		switch {
 		case key.Matches(msg, m.keys.Quit):
@@ -295,10 +387,210 @@ func (m FinderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Update list if in list panel
-	if m.activePanel == PanelList {
+	if m.activePanel == PanelList && m.inputMode == ModeNormal {
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
 		return m, cmd
+	}
+
+	return m, nil
+}
+
+// handleInputMode handles input when in an input mode
+func (m FinderModel) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "ctrl+c":
+		// Cancel input
+		m.inputMode = ModeNormal
+		m.textInput.SetValue("")
+		return m, nil
+
+	case "enter":
+		// Process input based on mode
+		return m.processInput()
+	}
+
+	// Handle tag removal mode differently (list navigation)
+	if m.inputMode == ModeRemovingTag {
+		switch msg.String() {
+		case "up", "k":
+			m.tagRemoveCursor--
+			if m.tagRemoveCursor < 0 {
+				m.tagRemoveCursor = len(m.promptTags) - 1
+			}
+			return m, nil
+		case "down", "j":
+			m.tagRemoveCursor++
+			if m.tagRemoveCursor >= len(m.promptTags) {
+				m.tagRemoveCursor = 0
+			}
+			return m, nil
+		case " ":
+			// Remove selected tag
+			if m.tagRemoveCursor < len(m.promptTags) {
+				return m.removeTag(m.tagRemoveCursor)
+			}
+			return m, nil
+		}
+		return m, nil
+	}
+
+	// Update text input
+	var cmd tea.Cmd
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
+}
+
+// processInput processes the input based on current mode
+func (m FinderModel) processInput() (tea.Model, tea.Cmd) {
+	value := strings.TrimSpace(m.textInput.Value())
+	if value == "" {
+		m.inputMode = ModeNormal
+		m.textInput.SetValue("")
+		return m, nil
+	}
+
+	switch m.inputMode {
+	case ModeAddingTag:
+		return m.addTags(value)
+	case ModeAddingAlias:
+		return m.addAlias(value)
+	case ModeAddingNotes:
+		return m.addNotes(value)
+	}
+
+	m.inputMode = ModeNormal
+	m.textInput.SetValue("")
+	return m, nil
+}
+
+// addTags adds tags to the current prompt
+func (m FinderModel) addTags(tagsStr string) (tea.Model, tea.Cmd) {
+	// Parse tags (comma-separated)
+	tags := strings.Split(tagsStr, ",")
+	parsedTags := make([]string, 0, len(tags))
+	for _, t := range tags {
+		t = strings.TrimSpace(t)
+		if t != "" {
+			parsedTags = append(parsedTags, strings.ToLower(t))
+		}
+	}
+
+	if len(parsedTags) == 0 {
+		m.setStatus("No tags entered", 2*time.Second)
+		m.inputMode = ModeNormal
+		m.textInput.SetValue("")
+		return m, nil
+	}
+
+	// Add tags
+	tagMgr := tag.NewManager()
+	if err := tagMgr.AddTags(m.currentPromptID, parsedTags); err != nil {
+		m.setStatus(fmt.Sprintf("Error: %v", err), 3*time.Second)
+	} else {
+		m.setStatus(fmt.Sprintf("✓ Added tags: %s", strings.Join(parsedTags, ", ")), 3*time.Second)
+		m.reloadData()
+	}
+
+	m.inputMode = ModeNormal
+	m.textInput.SetValue("")
+	return m, nil
+}
+
+// addAlias adds an alias to the current prompt
+func (m FinderModel) addAlias(aliasName string) (tea.Model, tea.Cmd) {
+	// Validate alias name
+	aliasName = strings.ToLower(strings.TrimSpace(aliasName))
+	if aliasName == "" {
+		m.setStatus("Alias cannot be empty", 2*time.Second)
+		m.inputMode = ModeNormal
+		m.textInput.SetValue("")
+		return m, nil
+	}
+
+	// Add bookmark with alias (alias is stored in bookmarks)
+	mgr := bookmark.NewManager()
+	bm := models.Bookmark{
+		PromptID: m.currentPromptID,
+		Notes:    fmt.Sprintf("Alias: %s", aliasName),
+	}
+
+	if err := mgr.AddBookmark(bm); err != nil {
+		m.setStatus(fmt.Sprintf("Error: %v", err), 3*time.Second)
+	} else {
+		m.setStatus(fmt.Sprintf("✓ Added alias: %s", aliasName), 3*time.Second)
+		m.reloadData()
+	}
+
+	m.inputMode = ModeNormal
+	m.textInput.SetValue("")
+	return m, nil
+}
+
+// addNotes adds notes to the bookmark
+func (m FinderModel) addNotes(notes string) (tea.Model, tea.Cmd) {
+	mgr := bookmark.NewManager()
+
+	// Check if already bookmarked
+	if !m.bookmarkedIDs[m.currentPromptID] {
+		// Create bookmark with notes
+		bm := models.Bookmark{
+			PromptID: m.currentPromptID,
+			Notes:    notes,
+		}
+		if err := mgr.AddBookmark(bm); err != nil {
+			m.setStatus(fmt.Sprintf("Error: %v", err), 3*time.Second)
+		} else {
+			m.setStatus("✓ Bookmarked with notes", 3*time.Second)
+			m.reloadData()
+		}
+	} else {
+		// Update existing bookmark notes
+		if err := mgr.UpdateBookmark(m.currentPromptID, func(bm *models.Bookmark) error {
+			bm.Notes = notes
+			return nil
+		}); err != nil {
+			m.setStatus(fmt.Sprintf("Error: %v", err), 3*time.Second)
+		} else {
+			m.setStatus("✓ Updated notes", 3*time.Second)
+		}
+	}
+
+	m.inputMode = ModeNormal
+	m.textInput.SetValue("")
+	return m, nil
+}
+
+// removeTag removes a tag at the given index
+func (m FinderModel) removeTag(idx int) (tea.Model, tea.Cmd) {
+	if idx < 0 || idx >= len(m.promptTags) {
+		return m, nil
+	}
+
+	tagToRemove := m.promptTags[idx]
+	tagMgr := tag.NewManager()
+
+	if err := tagMgr.RemoveTags(m.currentPromptID, []string{tagToRemove}); err != nil {
+		m.setStatus(fmt.Sprintf("Error: %v", err), 3*time.Second)
+	} else {
+		m.setStatus(fmt.Sprintf("✓ Removed tag: %s", tagToRemove), 3*time.Second)
+		m.reloadData()
+
+		// Reload tags for this prompt
+		remainingTags, _ := tagMgr.GetTags(m.currentPromptID)
+		m.promptTags = remainingTags
+
+		// Exit if no more tags
+		if len(m.promptTags) == 0 {
+			m.inputMode = ModeNormal
+			m.setStatus("✓ All tags removed", 2*time.Second)
+			return m, nil
+		}
+
+		// Adjust cursor
+		if m.tagRemoveCursor >= len(m.promptTags) {
+			m.tagRemoveCursor = len(m.promptTags) - 1
+		}
 	}
 
 	return m, nil
@@ -341,36 +633,81 @@ func (m FinderModel) updateListPanel(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
+	// Get selected prompt for operations
+	var selectedPrompt *PromptItem
+	if item, ok := m.list.SelectedItem().(PromptItem); ok {
+		selectedPrompt = &item
+	}
+
 	switch {
 	case key.Matches(msg, m.keys.Select):
-		if item, ok := m.list.SelectedItem().(PromptItem); ok {
-			m.selectedID = item.Prompt.ID
+		if selectedPrompt != nil {
+			m.selectedID = selectedPrompt.Prompt.ID
 			m.quitting = true
 			return m, tea.Quit
 		}
 
 	case key.Matches(msg, m.keys.Get):
-		if item, ok := m.list.SelectedItem().(PromptItem); ok {
-			m.selectedID = item.Prompt.ID
+		if selectedPrompt != nil {
+			m.selectedID = selectedPrompt.Prompt.ID
 			m.actionGet = true
 			m.quitting = true
 			return m, tea.Quit
 		}
 
 	case key.Matches(msg, m.keys.Bookmark):
-		if item, ok := m.list.SelectedItem().(PromptItem); ok {
-			m.selectedID = item.Prompt.ID
-			m.actionBookmark = true
-			m.quitting = true
-			return m, tea.Quit
+		// Toggle bookmark
+		if selectedPrompt != nil {
+			return m.toggleBookmark(selectedPrompt.Prompt.ID)
 		}
 
 	case key.Matches(msg, m.keys.Tag):
-		if item, ok := m.list.SelectedItem().(PromptItem); ok {
-			m.selectedID = item.Prompt.ID
-			m.actionTag = true
-			m.quitting = true
-			return m, tea.Quit
+		// Add tags
+		if selectedPrompt != nil {
+			m.currentPromptID = selectedPrompt.Prompt.ID
+			m.inputMode = ModeAddingTag
+			m.textInput.Placeholder = "Enter tags (comma-separated)..."
+			m.textInput.SetValue("")
+			m.textInput.Focus()
+			return m, nil
+		}
+
+	case key.Matches(msg, m.keys.Alias):
+		// Add alias
+		if selectedPrompt != nil {
+			m.currentPromptID = selectedPrompt.Prompt.ID
+			m.inputMode = ModeAddingAlias
+			m.textInput.Placeholder = "Enter alias name..."
+			m.textInput.SetValue("")
+			m.textInput.Focus()
+			return m, nil
+		}
+
+	case key.Matches(msg, m.keys.RemoveTag):
+		// Remove tags
+		if selectedPrompt != nil {
+			tagMgr := tag.NewManager()
+			tags, err := tagMgr.GetTags(selectedPrompt.Prompt.ID)
+			if err != nil || len(tags) == 0 {
+				m.setStatus("No tags to remove", 2*time.Second)
+				return m, nil
+			}
+			m.currentPromptID = selectedPrompt.Prompt.ID
+			m.promptTags = tags
+			m.tagRemoveCursor = 0
+			m.inputMode = ModeRemovingTag
+			return m, nil
+		}
+
+	case key.Matches(msg, m.keys.Notes):
+		// Add notes
+		if selectedPrompt != nil {
+			m.currentPromptID = selectedPrompt.Prompt.ID
+			m.inputMode = ModeAddingNotes
+			m.textInput.Placeholder = "Enter notes..."
+			m.textInput.SetValue("")
+			m.textInput.Focus()
+			return m, nil
 		}
 	}
 
@@ -378,6 +715,35 @@ func (m FinderModel) updateListPanel(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	return m, cmd
+}
+
+// toggleBookmark toggles bookmark status for a prompt
+func (m FinderModel) toggleBookmark(promptID string) (tea.Model, tea.Cmd) {
+	mgr := bookmark.NewManager()
+
+	if m.bookmarkedIDs[promptID] {
+		// Remove bookmark
+		if err := mgr.RemoveBookmark(promptID); err != nil {
+			m.setStatus(fmt.Sprintf("Error: %v", err), 3*time.Second)
+		} else {
+			m.setStatus("✓ Bookmark removed", 2*time.Second)
+			m.reloadData()
+		}
+	} else {
+		// Add bookmark
+		bm := models.Bookmark{
+			PromptID: promptID,
+			Notes:    "Bookmarked via finder",
+		}
+		if err := mgr.AddBookmark(bm); err != nil {
+			m.setStatus(fmt.Sprintf("Error: %v", err), 3*time.Second)
+		} else {
+			m.setStatus("✓ Bookmarked", 2*time.Second)
+			m.reloadData()
+		}
+	}
+
+	return m, nil
 }
 
 // getFilterItemCount returns total number of filterable items
@@ -453,6 +819,11 @@ func (m FinderModel) View() string {
 		return ""
 	}
 
+	// Handle input modes
+	if m.inputMode != ModeNormal {
+		return m.renderInputDialog()
+	}
+
 	// Styles
 	activeStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -498,6 +869,16 @@ func (m FinderModel) View() string {
 	// Combine panels side by side
 	mainView := lipgloss.JoinHorizontal(lipgloss.Top, filtersPanel, listPanel)
 
+	// Status message
+	statusStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("42")).
+		Bold(true)
+
+	var statusView string
+	if m.statusMessage != "" {
+		statusView = statusStyle.Render(m.statusMessage) + "\n"
+	}
+
 	// Help text
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
@@ -507,10 +888,76 @@ func (m FinderModel) View() string {
 	if m.activePanel == PanelFilters {
 		help = "↑/↓: navigate | space: toggle | tab: switch panel | q: quit"
 	} else {
-		help = "enter: select | ctrl+g: get | ctrl+s: bookmark | ctrl+t: tag | tab: filters | q: quit"
+		help = "enter: select | ctrl+g: get | ctrl+s: bookmark | ctrl+t: tags | ctrl+a: alias | ctrl+r: remove tags | tab: filters"
 	}
 
-	return fmt.Sprintf("%s\n%s", mainView, helpStyle.Render(help))
+	return fmt.Sprintf("%s\n%s%s", mainView, statusView, helpStyle.Render(help))
+}
+
+// renderInputDialog renders the input dialog
+func (m *FinderModel) renderInputDialog() string {
+	dialogStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("205")).
+		Padding(1, 2).
+		Width(60)
+
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("205"))
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		MarginTop(1)
+
+	var title, help string
+	var content strings.Builder
+
+	switch m.inputMode {
+	case ModeAddingTag:
+		title = "Add Tags"
+		help = "Enter comma-separated tags (e.g., dev,security). Press Enter to save, Esc to cancel."
+		content.WriteString(fmt.Sprintf("Prompt: %s\n\n", m.currentPromptID))
+		content.WriteString(m.textInput.View())
+
+	case ModeAddingAlias:
+		title = "Add Alias"
+		help = "Enter an alias name for this prompt. Press Enter to save, Esc to cancel."
+		content.WriteString(fmt.Sprintf("Prompt: %s\n\n", m.currentPromptID))
+		content.WriteString(m.textInput.View())
+
+	case ModeAddingNotes:
+		title = "Add Notes"
+		help = "Enter notes for this bookmark. Press Enter to save, Esc to cancel."
+		content.WriteString(fmt.Sprintf("Prompt: %s\n\n", m.currentPromptID))
+		content.WriteString(m.textInput.View())
+
+	case ModeRemovingTag:
+		title = "Remove Tags"
+		help = "↑/↓: navigate | Space: remove selected tag | Esc: cancel"
+		content.WriteString(fmt.Sprintf("Prompt: %s\n\n", m.currentPromptID))
+		content.WriteString("Select tag to remove:\n\n")
+		for i, tag := range m.promptTags {
+			cursor := "  "
+			if i == m.tagRemoveCursor {
+				cursor = "→ "
+			}
+			content.WriteString(fmt.Sprintf("%s%s\n", cursor, tag))
+		}
+	}
+
+	dialog := fmt.Sprintf("%s\n\n%s\n\n%s",
+		titleStyle.Render(title),
+		content.String(),
+		helpStyle.Render(help))
+
+	return lipgloss.Place(
+		m.width,
+		m.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		dialogStyle.Render(dialog),
+	)
 }
 
 // renderFiltersPanel renders the left filters panel
