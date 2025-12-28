@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 	"github.com/rmhubbert/bubbletea-overlay"
 	"github.com/whisller/pkit/internal/bookmark"
 	"github.com/whisller/pkit/internal/source"
@@ -50,19 +51,21 @@ const (
 
 // KeyMap defines keyboard shortcuts
 type KeyMap struct {
-	Quit         key.Binding
-	Select       key.Binding
-	Get          key.Binding
-	Bookmark     key.Binding
-	Tag          key.Binding
-	Alias        key.Binding
-	RemoveTag    key.Binding
-	Notes        key.Binding
-	Preview      key.Binding
-	Up           key.Binding
-	Down         key.Binding
-	SwitchPanel  key.Binding
-	ToggleFilter key.Binding
+	Quit           key.Binding
+	Select         key.Binding
+	Get            key.Binding
+	Bookmark       key.Binding
+	RemoveBookmark key.Binding // T043: Remove bookmark shortcut (ctrl+x)
+	Tag            key.Binding
+	Alias          key.Binding
+	RemoveTag      key.Binding
+	Notes          key.Binding
+	Preview        key.Binding
+	Up             key.Binding
+	Down           key.Binding
+	SwitchPanel    key.Binding
+	ToggleFilter   key.Binding
+	Search         key.Binding // T010: Search key binding
 }
 
 // DefaultKeyMap returns the default key bindings
@@ -83,6 +86,10 @@ func DefaultKeyMap() KeyMap {
 		Bookmark: key.NewBinding(
 			key.WithKeys("ctrl+s"),
 			key.WithHelp("ctrl+s", "toggle bookmark"),
+		),
+		RemoveBookmark: key.NewBinding(
+			key.WithKeys("ctrl+x"),
+			key.WithHelp("ctrl+x", "remove bookmark"),
 		),
 		Tag: key.NewBinding(
 			key.WithKeys("ctrl+t"),
@@ -120,15 +127,26 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys(" "),
 			key.WithHelp("space", "toggle filter"),
 		),
+		Search: key.NewBinding(
+			key.WithKeys("/"),
+			key.WithHelp("/", "search"),
+		),
 	}
 }
 
 // PromptItem wraps a prompt for display in the list
 type PromptItem struct {
-	Prompt models.Prompt
+	Prompt     models.Prompt
+	Bookmarked bool // Whether this prompt is bookmarked
 }
 
-func (i PromptItem) Title() string       { return i.Prompt.ID }
+func (i PromptItem) Title() string {
+	// Add bookmark indicator [*] if bookmarked
+	if i.Bookmarked {
+		return "[*] " + i.Prompt.ID
+	}
+	return i.Prompt.ID
+}
 func (i PromptItem) Description() string { return i.Prompt.Description }
 func (i PromptItem) FilterValue() string {
 	return i.Prompt.ID + " " + i.Prompt.Name + " " + i.Prompt.Description
@@ -171,6 +189,29 @@ type FinderModel struct {
 	actionBookmark bool
 	actionTag      bool
 	quitting       bool
+
+	// Search state (T004)
+	searchMode    bool
+	searchQuery   string
+	searchInput   textinput.Model
+	preSearchList []models.Prompt
+
+	// Help text state (T005)
+	helpText string
+
+	// Tag truncation (T006)
+	tagTruncateLength int
+	truncatedTags     map[string]string
+
+	// Pagination (T007)
+	currentPage int
+	totalPages  int
+	pageSize    int
+
+	// Preview sizing (T008)
+	previewMinHeight     int
+	previewMaxHeightPct  float64
+	previewDynamicHeight int
 }
 
 // NewFinderModel creates a new finder model
@@ -225,31 +266,48 @@ func NewFinderModel(prompts []models.Prompt) FinderModel {
 	l.SetFilteringEnabled(true)
 	l.SetShowStatusBar(false) // Hide status bar - we show count in border title
 
+	// T056: Disable list's built-in pagination dots (we use custom numeric pagination)
+	l.Paginator.Type = 0 // 0 = paginator.None (no dots shown)
+
 	// Create text input for dialogs
 	ti := textinput.New()
 	ti.Placeholder = "Enter value..."
 	ti.CharLimit = 200
 	ti.Width = 50
 
+	// Create search input (T009)
+	searchInput := textinput.New()
+	searchInput.Placeholder = "search..."
+	searchInput.CharLimit = 100
+	searchInput.Width = 30
+
 	m := FinderModel{
-		list:             l,
-		keys:             DefaultKeyMap(),
-		allPrompts:       prompts,
-		activePanel:      PanelFilters,
-		filterCursor:     0,
-		filterSection:    FilterSources,
-		availableSources: sources,
-		selectedSources:  selectedSources,
-		availableTags:    tags,
-		selectedTags:     make(map[string]bool),
-		showBookmarked:   false,
-		bookmarkedIDs:    bookmarkedIDs,
-		inputMode:        ModeNormal,
-		textInput:        ti,
+		list:                l,
+		keys:                DefaultKeyMap(),
+		allPrompts:          prompts,
+		activePanel:         PanelFilters,
+		filterCursor:        0,
+		filterSection:       FilterSources,
+		availableSources:    sources,
+		selectedSources:     selectedSources,
+		availableTags:       tags,
+		selectedTags:        make(map[string]bool),
+		showBookmarked:      false,
+		bookmarkedIDs:       bookmarkedIDs,
+		inputMode:           ModeNormal,
+		textInput:           ti,
+		searchInput:         searchInput,
+		tagTruncateLength:   25,
+		truncatedTags:       make(map[string]string),
+		previewMinHeight:    15,
+		previewMaxHeightPct: 0.5,
 	}
 
 	// Apply initial filtering
 	m.applyFilters()
+
+	// Cache truncated tags (T033)
+	m.cacheTruncatedTags()
 
 	return m
 }
@@ -306,12 +364,194 @@ func (m *FinderModel) applyFilters() {
 
 	m.filteredPrompts = filtered
 
-	// Update list items
+	// Update list items with bookmark indicators
 	items := make([]list.Item, len(filtered))
 	for i, p := range filtered {
-		items[i] = PromptItem{Prompt: p}
+		items[i] = PromptItem{
+			Prompt:     p,
+			Bookmarked: m.bookmarkedIDs[p.ID],
+		}
 	}
 	m.list.SetItems(items)
+
+	// T052: Update pagination after filter changes
+	m.updatePagination()
+}
+
+// applySearchFilter searches prompts by ID, name, and description (T013)
+func (m *FinderModel) applySearchFilter(prompts []models.Prompt, query string) []models.Prompt {
+	if query == "" {
+		return prompts
+	}
+
+	queryLower := strings.ToLower(query)
+	var results []models.Prompt
+
+	for _, p := range prompts {
+		// Search in ID, name, description
+		if strings.Contains(strings.ToLower(p.ID), queryLower) ||
+			strings.Contains(strings.ToLower(p.Name), queryLower) ||
+			strings.Contains(strings.ToLower(p.Description), queryLower) {
+			results = append(results, p)
+		}
+	}
+
+	return results
+}
+
+// truncateTag truncates tag names to max 25 visual characters (T030, T031)
+func truncateTag(tag string) string {
+	const MaxTagDisplayLength = 25
+
+	// Measure visual width (ignoring ANSI codes)
+	visualWidth := lipgloss.Width(tag)
+
+	// No truncation needed
+	if visualWidth <= MaxTagDisplayLength {
+		return tag
+	}
+
+	// Truncate at character boundaries (not byte boundaries)
+	runes := []rune(tag)
+	truncated := ""
+	currentWidth := 0
+
+	for _, r := range runes {
+		// Get character width (1 for ASCII, 2 for CJK, varies for emoji)
+		charWidth := runewidth.RuneWidth(r)
+
+		// Stop before exceeding limit (reserve 3 chars for "...")
+		if currentWidth+charWidth > (MaxTagDisplayLength - 3) {
+			break
+		}
+
+		truncated += string(r)
+		currentWidth += charWidth
+	}
+
+	return truncated + "..."
+}
+
+// cacheTruncatedTags populates the truncated tags cache (T032)
+func (m *FinderModel) cacheTruncatedTags() {
+	m.truncatedTags = make(map[string]string)
+
+	tagMgr := tag.NewManager()
+	allPromptTags, err := tagMgr.ListAllTags()
+	if err != nil {
+		return
+	}
+
+	// Extract unique tag names
+	tagSet := make(map[string]bool)
+	for _, pt := range allPromptTags {
+		for _, tagName := range pt.Tags {
+			tagSet[tagName] = true
+		}
+	}
+
+	// Cache truncated versions
+	for tagName := range tagSet {
+		m.truncatedTags[tagName] = truncateTag(tagName)
+	}
+}
+
+// calculatePreviewHeight calculates preview dialog height based on content (T036, T037)
+func (m *FinderModel) calculatePreviewHeight(contentLines int) int {
+	const (
+		MinHeight        = 15
+		MaxHeightPercent = 0.5
+		DialogOverhead   = 6 // Title (1) + top border (1) + padding (2) + bottom border (1) + status (1)
+	)
+
+	// Calculate available space
+	maxAllowedHeight := int(float64(m.height) * MaxHeightPercent)
+
+	// Desired height based on actual content
+	desiredHeight := contentLines + DialogOverhead
+
+	// Apply constraints
+	height := desiredHeight
+
+	// Ensure minimum readability
+	if height < MinHeight {
+		height = MinHeight
+	}
+
+	// Don't overwhelm screen
+	if height > maxAllowedHeight {
+		height = maxAllowedHeight
+	}
+
+	return height
+}
+
+// toggleBookmarkInPreview toggles bookmark status for current prompt in preview (T044, T047)
+func (m *FinderModel) toggleBookmarkInPreview(removeOnly bool) {
+	if m.currentPrompt == nil {
+		return
+	}
+
+	promptID := m.currentPrompt.ID
+	isBookmarked := m.bookmarkedIDs[promptID]
+	bmMgr := bookmark.NewManager()
+
+	if removeOnly {
+		// ctrl+x: Only remove if bookmarked
+		if isBookmarked {
+			if err := bmMgr.RemoveBookmark(promptID); err != nil {
+				m.setStatus(fmt.Sprintf("Error: %v", err), 3*time.Second)
+			} else {
+				delete(m.bookmarkedIDs, promptID)
+				m.setStatus("✓ Bookmark removed", 2*time.Second)
+			}
+		}
+	} else {
+		// ctrl+b: Toggle bookmark
+		if isBookmarked {
+			if err := bmMgr.RemoveBookmark(promptID); err != nil {
+				m.setStatus(fmt.Sprintf("Error: %v", err), 3*time.Second)
+			} else {
+				delete(m.bookmarkedIDs, promptID)
+				m.setStatus("✓ Bookmark removed", 2*time.Second)
+			}
+		} else {
+			newBookmark := models.Bookmark{
+				PromptID: promptID,
+			}
+			if err := bmMgr.AddBookmark(newBookmark); err != nil {
+				m.setStatus(fmt.Sprintf("Error: %v", err), 3*time.Second)
+			} else {
+				m.bookmarkedIDs[promptID] = true
+				m.setStatus("✓ Bookmarked", 2*time.Second)
+			}
+		}
+	}
+}
+
+// updatePagination calculates pagination info based on filtered prompts (T050)
+func (m *FinderModel) updatePagination() {
+	// Page size is from list settings (default is 20)
+	pageSize := m.list.Paginator.PerPage
+	if pageSize == 0 {
+		pageSize = 20 // Default fallback
+	}
+	m.pageSize = pageSize
+
+	// Calculate total pages
+	promptCount := len(m.filteredPrompts)
+	if promptCount == 0 {
+		m.totalPages = 1
+		m.currentPage = 1
+	} else {
+		m.totalPages = (promptCount + pageSize - 1) / pageSize
+		m.currentPage = m.list.Paginator.Page + 1 // Convert 0-indexed to 1-indexed
+	}
+}
+
+// getPaginationText returns formatted pagination text "N/M" (T051)
+func (m *FinderModel) getPaginationText() string {
+	return fmt.Sprintf("%d/%d", m.currentPage, m.totalPages)
 }
 
 // reloadData reloads bookmarks and tags from disk
@@ -381,9 +621,58 @@ func (m FinderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.list.SetWidth(listWidth - 4) // Account for border padding
 		m.list.SetHeight(listHeight)
+
+		// Update search input width if in search mode
+		if m.searchMode {
+			searchInputWidth := listWidth - 20 // Account for label, borders, and padding
+			if searchInputWidth < 10 {
+				searchInputWidth = 10
+			}
+			m.searchInput.Width = searchInputWidth
+		}
+
 		return m, nil
 
 	case tea.KeyMsg:
+		// Handle search mode (T011, T012, T014)
+		if m.searchMode {
+			switch {
+			case key.Matches(msg, m.keys.Quit): // Esc to cancel search
+				m.searchMode = false
+				m.searchQuery = ""
+				m.searchInput.SetValue("")
+				m.filteredPrompts = m.preSearchList // Restore pre-search list
+				m.applyFilters()                    // Reapply filters to update list display
+				return m, nil
+
+			case key.Matches(msg, m.keys.Select): // Enter to apply search
+				m.searchMode = false
+				// Keep current filteredPrompts as search results
+				return m, nil
+
+			default:
+				// Update search input
+				var cmd tea.Cmd
+				m.searchInput, cmd = m.searchInput.Update(msg)
+				m.searchQuery = m.searchInput.Value()
+
+				// Apply real-time search filtering
+				m.filteredPrompts = m.applySearchFilter(m.preSearchList, m.searchQuery)
+
+				// Update list with search results and bookmark indicators
+				items := make([]list.Item, len(m.filteredPrompts))
+				for i, p := range m.filteredPrompts {
+					items[i] = PromptItem{
+						Prompt:     p,
+						Bookmarked: m.bookmarkedIDs[p.ID],
+					}
+				}
+				m.list.SetItems(items)
+
+				return m, cmd
+			}
+		}
+
 		// Handle input modes
 		if m.inputMode != ModeNormal {
 			return m.handleInputMode(msg)
@@ -394,6 +683,27 @@ func (m FinderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Quit):
 			m.quitting = true
 			return m, tea.Quit
+
+		case key.Matches(msg, m.keys.Search): // T011: "/" key activates search
+			m.searchMode = true
+			m.searchInput.Focus()
+			m.searchInput.SetValue("")
+			m.searchQuery = ""
+			m.preSearchList = m.filteredPrompts // Backup current filtered list
+
+			// Set search input width dynamically based on available space
+			filterWidth := int(float64(m.width) * 0.3)
+			if filterWidth < 30 {
+				filterWidth = 30
+			}
+			listWidth := m.width - filterWidth - 4
+			searchInputWidth := listWidth - 20 // Account for label, borders, and padding
+			if searchInputWidth < 10 {
+				searchInputWidth = 10
+			}
+			m.searchInput.Width = searchInputWidth
+
+			return m, nil
 
 		case key.Matches(msg, m.keys.SwitchPanel):
 			// Switch between filters and list panels
@@ -417,6 +727,7 @@ func (m FinderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.activePanel == PanelList && m.inputMode == ModeNormal {
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
+		m.updatePagination() // T053: Update pagination after page navigation
 		return m, cmd
 	}
 
@@ -465,6 +776,28 @@ func (m FinderModel) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "home":
 			m.previewScroll = 0
 			return m, nil
+		case "ctrl+x":
+			// T045: Remove bookmark in preview mode
+			m.toggleBookmarkInPreview(true)
+			return m, nil
+		case "ctrl+b", "ctrl+s":
+			// T046: Toggle bookmark in preview mode
+			// ctrl+s is the standard bookmark key, ctrl+b is preview-specific shortcut
+			m.toggleBookmarkInPreview(false)
+			return m, nil
+		case "ctrl+t":
+			// Open tag dialog from preview
+			if m.currentPrompt != nil {
+				m.currentPromptID = m.currentPrompt.ID
+				m.inputMode = ModeAddingTag
+
+				// Pre-fill input with existing tags for editing
+				tagMgr := tag.NewManager()
+				existingTags, _ := tagMgr.GetTags(m.currentPrompt.ID)
+				m.textInput.SetValue(strings.Join(existingTags, ", "))
+				m.textInput.Focus()
+			}
+			return m, nil
 		}
 		return m, nil
 	}
@@ -503,7 +836,9 @@ func (m FinderModel) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // processInput processes the input based on current mode
 func (m FinderModel) processInput() (tea.Model, tea.Cmd) {
 	value := strings.TrimSpace(m.textInput.Value())
-	if value == "" {
+
+	// Allow empty value for tag editing (to clear all tags)
+	if value == "" && m.inputMode != ModeAddingTag {
 		m.inputMode = ModeNormal
 		m.textInput.SetValue("")
 		return m, nil
@@ -523,9 +858,11 @@ func (m FinderModel) processInput() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// addTags adds tags to the current prompt
+// addTags replaces tags for the current prompt (updates, not merges)
 func (m FinderModel) addTags(tagsStr string) (tea.Model, tea.Cmd) {
-	// Parse tags (comma-separated)
+	tagMgr := tag.NewManager()
+
+	// Parse new tags (comma-separated)
 	tags := strings.Split(tagsStr, ",")
 	parsedTags := make([]string, 0, len(tags))
 	for _, t := range tags {
@@ -535,19 +872,33 @@ func (m FinderModel) addTags(tagsStr string) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// If no tags entered, remove all existing tags
 	if len(parsedTags) == 0 {
-		m.setStatus("No tags entered", 2*time.Second)
+		if err := tagMgr.RemoveTags(m.currentPromptID, []string{}); err != nil {
+			// Ignore error if no tags exist
+			if !strings.Contains(err.Error(), "not found") {
+				m.setStatus(fmt.Sprintf("Error: %v", err), 3*time.Second)
+			} else {
+				m.setStatus("✓ Tags cleared", 2*time.Second)
+			}
+		} else {
+			m.setStatus("✓ Tags cleared", 2*time.Second)
+		}
+		m.reloadData()
 		m.inputMode = ModeNormal
 		m.textInput.SetValue("")
 		return m, nil
 	}
 
-	// Add tags
-	tagMgr := tag.NewManager()
+	// Replace tags: remove all existing, then add new ones
+	// First remove all existing tags
+	_ = tagMgr.RemoveTags(m.currentPromptID, []string{}) // Ignore error if no tags exist
+
+	// Then add the new tags
 	if err := tagMgr.AddTags(m.currentPromptID, parsedTags); err != nil {
 		m.setStatus(fmt.Sprintf("Error: %v", err), 3*time.Second)
 	} else {
-		m.setStatus(fmt.Sprintf("✓ Added tags: %s", strings.Join(parsedTags, ", ")), 3*time.Second)
+		m.setStatus(fmt.Sprintf("✓ Tags updated: %s", strings.Join(parsedTags, ", ")), 3*time.Second)
 		m.reloadData()
 	}
 
@@ -689,6 +1040,7 @@ func (m FinderModel) updateListPanel(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.list.FilterState() == list.Filtering {
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
+		m.updatePagination() // T053: Update pagination
 		return m, cmd
 	}
 
@@ -721,12 +1073,16 @@ func (m FinderModel) updateListPanel(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case key.Matches(msg, m.keys.Tag):
-		// Add tags
+		// Edit tags
 		if selectedPrompt != nil {
 			m.currentPromptID = selectedPrompt.Prompt.ID
 			m.inputMode = ModeAddingTag
 			m.textInput.Placeholder = "Enter tags (comma-separated)..."
-			m.textInput.SetValue("")
+
+			// Pre-fill input with existing tags for editing
+			tagMgr := tag.NewManager()
+			existingTags, _ := tagMgr.GetTags(selectedPrompt.Prompt.ID)
+			m.textInput.SetValue(strings.Join(existingTags, ", "))
 			m.textInput.Focus()
 			return m, nil
 		}
@@ -789,6 +1145,7 @@ func (m FinderModel) updateListPanel(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Update list
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
+	m.updatePagination() // T053: Update pagination
 	return m, cmd
 }
 
@@ -910,29 +1267,41 @@ func (m FinderModel) View() string {
 	// Combine panels side by side
 	mainView := lipgloss.JoinHorizontal(lipgloss.Top, filtersPanel, listPanel)
 
+	// T035: Show full tag name in status when tag is selected in filter panel
+	var contextStatus string
+	if m.activePanel == PanelFilters && m.statusMessage == "" {
+		// Calculate which item is selected based on cursor position
+		sourcesCount := len(m.availableSources)
+		tagsCount := len(m.availableTags)
+
+		// Check if cursor is in tags section
+		if m.filterCursor >= sourcesCount && m.filterCursor < sourcesCount+tagsCount {
+			tagIndex := m.filterCursor - sourcesCount
+			if tagIndex >= 0 && tagIndex < len(m.availableTags) {
+				fullTagName := m.availableTags[tagIndex]
+				contextStatus = fmt.Sprintf("Tag: %s", fullTagName)
+			}
+		}
+	}
+
 	// Status message
 	statusStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("42")).
 		Bold(true)
 
 	var statusView string
-	if m.statusMessage != "" {
-		statusView = statusStyle.Render(m.statusMessage) + "\n"
+	displayStatus := m.statusMessage
+	if displayStatus == "" && contextStatus != "" {
+		displayStatus = contextStatus
+	}
+	if displayStatus != "" {
+		statusView = statusStyle.Render(displayStatus) + "\n"
 	}
 
-	// Help text
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		Padding(1, 0)
+	// Help text (T029)
+	helpBar := m.renderHelpBar()
 
-	var help string
-	if m.activePanel == PanelFilters {
-		help = "↑/↓: navigate | space: toggle | tab: switch panel | q: quit"
-	} else {
-		help = "p: preview | enter: select | ctrl+g: get | ctrl+s: bookmark | ctrl+t: tags | ctrl+a: alias | tab: filters"
-	}
-
-	baseView := fmt.Sprintf("%s\n%s%s", mainView, statusView, helpStyle.Render(help))
+	baseView := fmt.Sprintf("%s\n%s%s", mainView, statusView, helpBar)
 
 	// Overlay dialogs/preview on top of base view using bubbletea-overlay library
 	if m.inputMode != ModeNormal {
@@ -965,9 +1334,11 @@ func (m *FinderModel) renderInputDialog() string {
 
 	switch m.inputMode {
 	case ModeAddingTag:
-		title = "Add Tags"
-		help = "Enter comma-separated tags (e.g., dev,security). Press Enter to save, Esc to cancel."
+		title = "Edit Tags"
+		help = "Edit tags (comma-separated). Clear all to remove. Press Enter to save, Esc to cancel."
 		content.WriteString(fmt.Sprintf("Prompt: %s\n\n", m.currentPromptID))
+
+		content.WriteString("Tags (comma-separated):\n")
 		content.WriteString(m.textInput.View())
 
 	case ModeAddingAlias:
@@ -1046,13 +1417,11 @@ func (m *FinderModel) renderPromptPreview() string {
 		dialogWidth = 60
 	}
 
-	dialogHeight := int(float64(m.height) * 0.6)
-	if dialogHeight > 30 {
-		dialogHeight = 30
-	}
-	if dialogHeight < 15 {
-		dialogHeight = 15
-	}
+	// Split content into lines for scrolling (T038)
+	contentLines := strings.Split(m.currentPrompt.Content, "\n")
+
+	// T039: Calculate dynamic height based on content
+	dialogHeight := m.calculatePreviewHeight(len(contentLines))
 
 	// Build metadata
 	var meta strings.Builder
@@ -1078,9 +1447,6 @@ func (m *FinderModel) renderPromptPreview() string {
 	if m.bookmarkedIDs[m.currentPrompt.ID] {
 		meta.WriteString("Bookmarked: Yes\n")
 	}
-
-	// Split content into lines for scrolling
-	contentLines := strings.Split(m.currentPrompt.Content, "\n")
 
 	// Calculate content area height (dialog height - metadata - title - help - padding)
 	contentHeight := dialogHeight - 10
@@ -1136,6 +1502,22 @@ func (m *FinderModel) renderPromptPreview() string {
 		scrollInfo = fmt.Sprintf(" (showing %d-%d of %d lines)", startLine+1, endLine, len(contentLines))
 	}
 
+	// T040: Top scroll indicator (when content above viewport)
+	scrollIndicatorStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		Align(lipgloss.Center)
+
+	var topScrollIndicator string
+	if startLine > 0 {
+		topScrollIndicator = scrollIndicatorStyle.Render("▲ More content above ▲") + "\n"
+	}
+
+	// T041: Bottom scroll indicator (when content below viewport)
+	var bottomScrollIndicator string
+	if endLine < len(contentLines) {
+		bottomScrollIndicator = "\n" + scrollIndicatorStyle.Render("▼ More content below ▼")
+	}
+
 	// Build dialog
 	var dialog strings.Builder
 	dialog.WriteString(titleStyle.Render(fmt.Sprintf("Prompt Preview%s", scrollInfo)))
@@ -1144,7 +1526,17 @@ func (m *FinderModel) renderPromptPreview() string {
 	dialog.WriteString("\n")
 	dialog.WriteString(strings.Repeat("─", dialogWidth-4))
 	dialog.WriteString("\n\n")
+	if topScrollIndicator != "" {
+		dialog.WriteString(topScrollIndicator)
+		dialog.WriteString(strings.Repeat("─", dialogWidth-4))
+		dialog.WriteString("\n")
+	}
 	dialog.WriteString(contentStyle.Render(wrappedContent.String()))
+	if bottomScrollIndicator != "" {
+		dialog.WriteString("\n")
+		dialog.WriteString(strings.Repeat("─", dialogWidth-4))
+		dialog.WriteString(bottomScrollIndicator)
+	}
 	dialog.WriteString("\n")
 	dialog.WriteString(helpStyle.Render("↑/↓: scroll | PgUp/PgDn: page | Home: top | q/Esc: close"))
 
@@ -1152,7 +1544,8 @@ func (m *FinderModel) renderPromptPreview() string {
 }
 
 // renderBorderedBox renders content with a border and title embedded in the top border
-func renderBorderedBox(title string, content string, width int, active bool) string {
+// T054: pagination parameter for bottom-right pagination display
+func renderBorderedBox(title string, content string, width int, active bool, pagination string) string {
 	// Ensure minimum width
 	if width < 10 {
 		width = 10
@@ -1205,7 +1598,7 @@ func renderBorderedBox(title string, content string, width int, active bool) str
 		if visualWidth > contentWidth {
 			// For truncation, we need to be more careful with ANSI codes
 			// For now, just use the line as-is and let it overflow
-			line = line
+			// (no action needed - line remains unchanged)
 		}
 
 		// Pad to exact width
@@ -1220,12 +1613,37 @@ func renderBorderedBox(title string, content string, width int, active bool) str
 		borderedLines = append(borderedLines, borderedLine)
 	}
 
-	// Bottom border
+	// Bottom border (T054, T055: with optional pagination text)
 	bottomWidth := width - 2
 	if bottomWidth < 1 {
 		bottomWidth = 1
 	}
-	bottomBorder := lipgloss.NewStyle().Foreground(borderColor).Render("╰" + strings.Repeat("─", bottomWidth) + "╯")
+
+	var bottomBorder string
+	if pagination != "" {
+		// Style pagination text (faint, dim)
+		paginationStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241"))
+		styledPagination := paginationStyle.Render(pagination)
+
+		// Calculate layout: "╰" + dashes + pagination + dashes + "╯"
+		paginationWidth := lipgloss.Width(styledPagination)
+		availableWidth := bottomWidth - paginationWidth
+		if availableWidth < 2 {
+			// Not enough space, use simple border
+			bottomBorder = lipgloss.NewStyle().Foreground(borderColor).Render("╰" + strings.Repeat("─", bottomWidth) + "╯")
+		} else {
+			// Split dashes: more on left, pagination on right
+			leftDashes := availableWidth - 1 // Leave 1 space before pagination
+			bottomBorder = lipgloss.NewStyle().Foreground(borderColor).Render("╰"+strings.Repeat("─", leftDashes)+" ") +
+				styledPagination +
+				lipgloss.NewStyle().Foreground(borderColor).Render("╯")
+		}
+	} else {
+		// No pagination, simple border
+		bottomBorder = lipgloss.NewStyle().Foreground(borderColor).Render("╰" + strings.Repeat("─", bottomWidth) + "╯")
+	}
+
 	borderedLines = append(borderedLines, bottomBorder)
 
 	return strings.Join(borderedLines, "\n")
@@ -1272,7 +1690,13 @@ func (m *FinderModel) renderFiltersPanel(width int) string {
 				checkbox = "[✓]"
 			}
 
-			line := fmt.Sprintf("%s %s", checkbox, tag)
+			// T034: Use truncated tag name for display
+			displayTag := m.truncatedTags[tag]
+			if displayTag == "" {
+				displayTag = tag // Fallback if not in cache
+			}
+
+			line := fmt.Sprintf("%s %s", checkbox, displayTag)
 			if cursor == m.filterCursor && m.activePanel == PanelFilters {
 				line = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render("→ " + line)
 			} else {
@@ -1307,7 +1731,100 @@ func (m *FinderModel) renderFiltersPanel(width int) string {
 	content.WriteString("\n" + statsStyle.Render(fmt.Sprintf("Showing: %d/%d prompts", len(m.filteredPrompts), len(m.allPrompts))))
 
 	// Render with title embedded in top border
-	return renderBorderedBox("FILTERS", content.String(), width, m.activePanel == PanelFilters)
+	return renderBorderedBox("FILTERS", content.String(), width, m.activePanel == PanelFilters, "")
+}
+
+// generateHelpText generates context-aware help text (T023-T027)
+func (m *FinderModel) generateHelpText() string {
+	switch {
+	case m.searchMode:
+		// T023: Search mode help
+		return "Type to search | Enter: apply | Esc: cancel"
+
+	case m.inputMode == ModeViewingPrompt:
+		// T026: Preview mode help
+		return "↑/↓: scroll | ctrl+b: bookmark | ctrl+t: tags | Esc: close"
+
+	case m.inputMode == ModeAddingTag:
+		// T027: Tag Dialog help
+		return "Enter: save | Esc: cancel"
+
+	case m.inputMode == ModeAddingAlias:
+		return "Enter: save | Esc: cancel"
+
+	case m.inputMode == ModeAddingNotes:
+		return "Enter: save | Esc: cancel"
+
+	case m.inputMode == ModeRemovingTag:
+		return "↑/↓: navigate | Space: remove | Esc: cancel"
+
+	case m.activePanel == PanelFilters:
+		// T025: Filter Panel help
+		return "↑/↓: navigate | Space: toggle | Tab: switch panel | /: search | q: quit"
+
+	default:
+		// T024: Normal mode (prompts list) - check for multiple pages
+		hasMultiplePages := m.totalPages > 1
+		if hasMultiplePages {
+			return "p: preview | enter: select | ←/→: pages | /: search | ctrl+g: get | ctrl+s: bookmark | ctrl+t: tags | tab: filters"
+		}
+		return "p: preview | enter: select | /: search | ctrl+g: get | ctrl+s: bookmark | ctrl+t: tags | ctrl+a: alias | tab: filters"
+	}
+}
+
+// renderHelpBar renders the help text bar (T028)
+func (m *FinderModel) renderHelpBar() string {
+	helpStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		Padding(1, 0)
+
+	return helpStyle.Render(m.generateHelpText())
+}
+
+// renderSearchBar renders the search input bar (T015)
+// Uses the list width to ensure it fits within the list view space
+func (m *FinderModel) renderSearchBar() string {
+	// Use the exact list width (not panel width)
+	// List width is already set to listWidth - 4 to account for borders
+	listItemWidth := m.list.Width()
+	if listItemWidth < 10 {
+		listItemWidth = 10
+	}
+
+	searchStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("205")).
+		Bold(true)
+
+	label := searchStyle.Render("Search: ")
+	labelWidth := lipgloss.Width(label)
+
+	// Calculate max width for input to fit within list item width
+	maxInputWidth := listItemWidth - labelWidth
+	if maxInputWidth < 5 {
+		maxInputWidth = 5
+	}
+
+	// Render input
+	inputView := m.searchInput.View()
+
+	// Use runewidth to truncate if needed (handles ANSI codes properly)
+	inputView = runewidth.Truncate(inputView, maxInputWidth, "...")
+
+	inputStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("255"))
+
+	input := inputStyle.Render(inputView)
+
+	// Build the search bar and pad to exact list width
+	searchBar := label + input
+	searchBarWidth := lipgloss.Width(searchBar)
+
+	// Pad to match list item width exactly
+	if searchBarWidth < listItemWidth {
+		searchBar = searchBar + strings.Repeat(" ", listItemWidth - searchBarWidth)
+	}
+
+	return searchBar
 }
 
 // renderListPanel renders the right list panel with directory info
@@ -1328,21 +1845,53 @@ func (m *FinderModel) renderListPanel(width int) string {
 		Foreground(lipgloss.Color("39"))
 
 	// Build prompts section with count in title
-	promptsContent := m.list.View()
+	var promptsContent string
+
+	// Add search bar if in search mode (T016)
+	if m.searchMode {
+		searchBar := m.renderSearchBar()
+
+		// T057: Show message when search has zero results
+		if len(m.filteredPrompts) == 0 {
+			noResults := "No results."
+			promptsContent = lipgloss.JoinVertical(lipgloss.Left, searchBar, noResults)
+		} else {
+			promptsContent = lipgloss.JoinVertical(lipgloss.Left, searchBar, m.list.View())
+		}
+	} else {
+		promptsContent = m.list.View()
+
+		// T058: Show message when bookmark filter active but no bookmarked prompts
+		if m.showBookmarked && len(m.filteredPrompts) == 0 {
+			noResults := "No bookmarked prompts"
+			promptsContent = lipgloss.JoinVertical(lipgloss.Left, promptsContent, noResults)
+		}
+	}
+
 	itemCount := len(m.filteredPrompts)
 	itemWord := "items"
 	if itemCount == 1 {
 		itemWord = "item"
 	}
+
+	// Add bookmark legend at bottom of prompts list
+	legendStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		Italic(true).
+		Padding(1, 0)
+	bookmarkLegend := legendStyle.Render("[*] Bookmarked")
+	promptsContent = lipgloss.JoinVertical(lipgloss.Left, promptsContent, bookmarkLegend)
+
 	promptsTitle := fmt.Sprintf("PROMPTS (%d %s)", itemCount, itemWord)
-	borderedPrompts := renderBorderedBox(promptsTitle, promptsContent, width, m.activePanel == PanelList)
+	// T054: Add pagination to prompts panel border
+	borderedPrompts := renderBorderedBox(promptsTitle, promptsContent, width, m.activePanel == PanelList, m.getPaginationText())
 
 	// Build directory info section
 	var dirContent strings.Builder
 	dirContent.WriteString(dirLabelStyle.Render("Current Directory"))
 	dirContent.WriteString("\n")
 	dirContent.WriteString(dirStyle.Render(fmt.Sprintf("📁 %s", cwd)))
-	borderedDir := renderBorderedBox("DIRECTORY", dirContent.String(), width, false)
+	borderedDir := renderBorderedBox("DIRECTORY", dirContent.String(), width, false, "")
 
 	// Combine sections vertically
 	return lipgloss.JoinVertical(lipgloss.Left, borderedPrompts, borderedDir)
