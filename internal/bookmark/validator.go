@@ -54,13 +54,13 @@ func ValidateBookmarksFile(path string) error {
 	}
 
 	// Validate each bookmark
-	aliases := make(map[string]bool)
+	promptIDs := make(map[string]bool)
 	for i, bm := range bookmarksFile.Bookmarks {
-		// Check for duplicate aliases
-		if aliases[bm.Alias] {
-			return fmt.Errorf("duplicate alias %q at index %d in bookmarks file", bm.Alias, i)
+		// Check for duplicate prompt IDs
+		if promptIDs[bm.PromptID] {
+			return fmt.Errorf("duplicate prompt_id %q at index %d in bookmarks file", bm.PromptID, i)
 		}
-		aliases[bm.Alias] = true
+		promptIDs[bm.PromptID] = true
 
 		// Validate bookmark using model validation
 		if err := bm.Validate(); err != nil {
@@ -103,13 +103,13 @@ func CheckBookmarkIntegrity(path string) (warnings []string, err error) {
 	}
 
 	// Check for warnings (non-fatal issues)
-	aliases := make(map[string]bool)
+	promptIDs := make(map[string]bool)
 	for i, bm := range bookmarksFile.Bookmarks {
-		// Check for duplicate aliases (fatal error)
-		if aliases[bm.Alias] {
-			return warnings, fmt.Errorf("duplicate alias %q at index %d", bm.Alias, i)
+		// Check for duplicate prompt IDs (fatal error)
+		if promptIDs[bm.PromptID] {
+			return warnings, fmt.Errorf("duplicate prompt_id %q at index %d", bm.PromptID, i)
 		}
-		aliases[bm.Alias] = true
+		promptIDs[bm.PromptID] = true
 
 		// Validate bookmark (fatal if invalid)
 		if err := bm.Validate(); err != nil {
@@ -118,13 +118,12 @@ func CheckBookmarkIntegrity(path string) (warnings []string, err error) {
 
 		// Check for potential warnings
 		if bm.UsageCount == 0 && bm.LastUsedAt == nil {
-			warnings = append(warnings, fmt.Sprintf("bookmark %q has never been used", bm.Alias))
+			warnings = append(warnings, fmt.Sprintf("bookmark for prompt %q has never been used", bm.PromptID))
 		}
 
-		// Check if prompt ID follows expected format but might not exist
-		// (This is a warning, not an error, as prompts might be deleted from source)
+		// Check if prompt ID is empty
 		if bm.PromptID == "" {
-			warnings = append(warnings, fmt.Sprintf("bookmark %q has empty prompt_id", bm.Alias))
+			warnings = append(warnings, fmt.Sprintf("bookmark at index %d has empty prompt_id", i))
 		}
 	}
 
@@ -193,6 +192,22 @@ func SaveBookmarks(bookmarks []models.Bookmark) error {
 		// Clean up temporary file on error
 		os.Remove(tmpFile)
 		return fmt.Errorf("failed to save bookmarks file: %w", err)
+	}
+
+	return nil
+}
+
+// ValidatePromptIDNotBookmarked checks if a prompt ID is not already bookmarked.
+func ValidatePromptIDNotBookmarked(promptID string) error {
+	bookmarks, err := LoadBookmarks()
+	if err != nil {
+		return fmt.Errorf("failed to load bookmarks: %w", err)
+	}
+
+	for _, bookmark := range bookmarks {
+		if bookmark.PromptID == promptID {
+			return fmt.Errorf("prompt '%s' is already bookmarked", promptID)
+		}
 	}
 
 	return nil

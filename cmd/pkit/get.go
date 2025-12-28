@@ -18,10 +18,33 @@ The get command resolves a bookmark alias or prompt ID and outputs ONLY the prom
 content to stdout - no headers, no metadata, no formatting. This ensures clean piping.
 
 Examples:
-  pkit get review                    # Get bookmarked prompt by alias
-  pkit get fabric:summarize          # Get prompt by ID
-  pkit get review | claude -p "test" # Pipe to claude
-  pkit get review --json             # Output as JSON`,
+  # Basic usage
+  pkit get review                              # Get by alias
+  pkit get fabric:code-review                  # Get by prompt ID
+
+  # Pipe to Claude CLI
+  pkit get review | claude "analyze this code: $(cat main.go)"
+  pkit get fabric:code-review | claude -p "review my PR"
+
+  # Pipe to LLM (Simon Willison's CLI)
+  pkit get fabric:summarize | llm "summarize this article: $(cat article.md)"
+  cat document.txt | llm -s "$(pkit get fabric:summarize)"
+
+  # Pipe to Fabric
+  pkit get fabric:extract-wisdom | fabric --stream
+  echo "content" | fabric --pattern "$(pkit get fabric:analyze-claims)"
+
+  # Pipe to Mods (Charm CLI)
+  pkit get review | mods "review this code"
+  cat script.sh | mods -f "$(pkit get fabric:security-review)"
+
+  # Review git changes
+  git diff | llm -s "$(pkit get fabric:code-review)"
+  git diff HEAD~1 | claude -p "$(pkit get review)" "explain these changes"
+  git diff --cached | mods -f "$(pkit get fabric:review-commit)"
+
+  # Output as JSON
+  pkit get review --json                       # Metadata + content`,
 	Args: cobra.ExactArgs(1),
 	RunE: runGet,
 }

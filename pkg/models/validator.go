@@ -31,7 +31,6 @@ func init() {
 	validate.RegisterValidation("prompt_name", validatePromptName)
 	validate.RegisterValidation("prompt_id", validatePromptID)
 	validate.RegisterValidation("alias", validateAlias)
-	validate.RegisterValidation("not_reserved", validateNotReserved)
 	validate.RegisterValidation("tag", validateTag)
 	validate.RegisterValidation("table_style", validateTableStyle)
 	validate.RegisterValidation("date_format", validateDateFormat)
@@ -79,12 +78,6 @@ func validatePromptID(fl validator.FieldLevel) bool {
 // validateAlias validates alias format: lowercase alphanumeric with hyphens/underscores
 func validateAlias(fl validator.FieldLevel) bool {
 	return aliasRegex.MatchString(fl.Field().String())
-}
-
-// validateNotReserved checks that alias is not a reserved command
-func validateNotReserved(fl validator.FieldLevel) bool {
-	alias := fl.Field().String()
-	return !reservedCommands[alias]
 }
 
 // validateTag validates tag format: lowercase alphanumeric with hyphens/underscores

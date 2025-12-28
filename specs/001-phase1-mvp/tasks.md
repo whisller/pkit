@@ -189,15 +189,15 @@ graph TD
 
 ### Tasks
 
-- [ ] T037 [US2] Implement bookmark manager in internal/bookmark/manager.go (CRUD operations on bookmarks.yml)
-- [ ] T038 [US2] Implement alias validator in internal/bookmark/validator.go (check uniqueness, reserved words, format)
-- [ ] T039 [US2] Implement tag parser in internal/bookmark/manager.go (parse comma-separated, deduplicate, lowercase)
-- [ ] T040 [US2] Implement save command in cmd/pkit/save.go (--as, --tags, --notes, --force flags)
-- [ ] T041 [P] [US2] Implement bookmarks command in cmd/pkit/bookmarks.go (list bookmarks, filter by tags)
-- [ ] T042 [P] [US2] Implement alias command in cmd/pkit/alias.go (rename bookmark alias)
-- [ ] T043 [P] [US2] Implement tag command in cmd/pkit/tag.go (update bookmark tags)
-- [ ] T044 [P] [US2] Implement rm command in cmd/pkit/rm.go (remove bookmark)
-- [ ] T045 [US2] Update get command to track usage (increment usage_count, update last_used_at in bookmarks.yml)
+- [X] T037 [US2] Implement bookmark manager in internal/bookmark/manager.go (CRUD operations on bookmarks.yml)
+- [X] T038 [US2] Implement alias validator in internal/bookmark/validator.go (check uniqueness, reserved words, format)
+- [X] T039 [US2] Implement tag parser in internal/bookmark/manager.go (parse comma-separated, deduplicate, lowercase)
+- [X] T040 [US2] Implement save command in cmd/pkit/save.go (--as, --tags, --notes, --force flags)
+- [X] T041 [P] [US2] Implement bookmarks command in cmd/pkit/bookmarks.go (list bookmarks, filter by tags)
+- [X] T042 [P] [US2] Implement alias command in cmd/pkit/alias.go (rename bookmark alias)
+- [X] T043 [P] [US2] Implement tag command in cmd/pkit/tag.go (update bookmark tags)
+- [X] T044 [P] [US2] Implement rm command in cmd/pkit/rm.go (remove bookmark)
+- [X] T045 [US2] Update get command to track usage (increment usage_count, update last_used_at in bookmarks.yml)
 
 **Parallel Execution Example**:
 ```bash
