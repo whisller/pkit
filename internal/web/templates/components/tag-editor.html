@@ -1,0 +1,29 @@
+{{define "tag-editor"}}
+<div class="tag-editor">
+    <h3>Tags</h3>
+
+    {{if .Tags}}
+    <div class="current-tags" id="current-tags">
+        {{range .Tags}}
+            <span class="tag">{{.}}</span>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="current-tags" id="current-tags">
+        <p style="color: #7f8c8d; font-size: 14px;">No tags yet. Add some below!</p>
+    </div>
+    {{end}}
+
+    <div class="tag-input-group">
+        <input type="text"
+               id="tag-input"
+               placeholder="Enter tags separated by commas (e.g., dev, work, important)"
+               value="{{range $i, $tag := .Tags}}{{if $i}}, {{end}}{{$tag}}{{end}}">
+        <button type="button"
+                class="btn btn-primary"
+                onclick="updateTags('{{.Prompt.ID}}', document.getElementById('tag-input').value)">
+            Save Tags
+        </button>
+    </div>
+</div>
+{{end}}

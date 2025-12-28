@@ -1,0 +1,35 @@
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{block "title" .}}pkit - Prompt Library{{end}}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">
+                <a href="/">pkit</a>
+            </h1>
+            <p class="tagline">Prompt Library</p>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            {{block "content" .}}{{end}}
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>pkit - Command-line prompt manager with web interface</p>
+        </div>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
+{{end}}

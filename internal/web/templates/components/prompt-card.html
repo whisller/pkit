@@ -1,0 +1,21 @@
+{{define "prompt-card"}}
+<div class="prompt-card">
+    <div class="prompt-card-header">
+        <h3 class="prompt-title">
+            <a href="/prompts/{{.Prompt.ID | urlquery}}">{{.Prompt.Name}}</a>
+            {{if .Bookmarked}}<span class="bookmark-indicator">[*]</span>{{end}}
+        </h3>
+        <span class="prompt-source">{{.Prompt.SourceID}}</span>
+    </div>
+
+    <p class="prompt-description">{{.Prompt.Description}}</p>
+
+    {{if .Tags}}
+    <div class="prompt-tags">
+        {{range .Tags}}
+            <span class="tag">{{.}}</span>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+{{end}}

@@ -1,0 +1,54 @@
+{{define "prompt-header"}}
+<div class="prompt-header">
+    <h2>{{.Prompt.Name}}</h2>
+
+    <div class="prompt-meta">
+        <div class="prompt-meta-item">
+            <strong>ID:</strong> <code>{{.Prompt.ID}}</code>
+        </div>
+        <div class="prompt-meta-item">
+            <strong>Source:</strong> <span class="prompt-source">{{.Prompt.SourceID}}</span>
+        </div>
+        {{if .Prompt.Author}}
+        <div class="prompt-meta-item">
+            <strong>Author:</strong> {{.Prompt.Author}}
+        </div>
+        {{end}}
+    </div>
+
+    {{if .Prompt.Description}}
+    <p class="prompt-description">{{.Prompt.Description}}</p>
+    {{end}}
+
+    <div class="prompt-actions">
+        <button type="button"
+                class="btn {{if .Bookmarked}}btn-danger{{else}}btn-primary{{end}}"
+                id="bookmark-btn"
+                data-prompt-id="{{.Prompt.ID}}"
+                data-bookmarked="{{.Bookmarked}}"
+                onclick="toggleBookmark('{{.Prompt.ID}}', this)">
+            {{if .Bookmarked}}Remove Bookmark{{else}}Bookmark{{end}}
+        </button>
+
+        <button type="button"
+                class="btn btn-secondary"
+                id="copy-btn"
+                onclick="copyToClipboard(document.getElementById('prompt-text').textContent, this)">
+            Copy to Clipboard
+        </button>
+    </div>
+
+    {{if .Bookmarked}}
+    {{if .Bookmark.Notes}}
+    <div class="bookmark-notes">
+        <strong>Notes:</strong> {{.Bookmark.Notes}}
+    </div>
+    {{end}}
+    {{if .Bookmark.UsageCount}}
+    <div class="bookmark-usage">
+        <small>Used {{.Bookmark.UsageCount}} times</small>
+    </div>
+    {{end}}
+    {{end}}
+</div>
+{{end}}

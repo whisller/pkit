@@ -1,0 +1,59 @@
+{{define "filters"}}
+<div class="filters">
+    <form method="GET" action="/" class="filter-form">
+        <div class="filter-row">
+            <div class="filter-group">
+                <label for="search">Search</label>
+                <input type="text"
+                       id="search"
+                       name="search"
+                       placeholder="Search prompts..."
+                       value="{{.Filters.SearchQuery}}">
+            </div>
+
+            <div class="filter-group">
+                <label for="source">Source</label>
+                <select id="source" name="source">
+                    <option value="">All Sources</option>
+                    {{range .Sources}}
+                        <option value="{{.}}" {{if eq . $.Filters.SourceFilter}}selected{{end}}>{{.}}</option>
+                    {{end}}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="bookmarked">Bookmarked Only</label>
+                <input type="checkbox"
+                       id="bookmarked"
+                       name="bookmarked"
+                       value="true"
+                       {{if .Filters.Bookmarked}}checked{{end}}>
+            </div>
+
+            <div class="filter-group">
+                <button type="submit" class="btn btn-primary">Filter</button>
+                <a href="/" class="btn btn-secondary">Clear</a>
+            </div>
+        </div>
+
+        {{if .Tags}}
+        <div class="filter-row">
+            <div class="filter-group filter-tags">
+                <label>Filter by Tags</label>
+                <div class="tag-checkboxes">
+                    {{range .Tags}}
+                        <label class="tag-checkbox">
+                            <input type="checkbox"
+                                   name="tags"
+                                   value="{{.}}"
+                                   {{range $.Filters.TagFilters}}{{if eq . $.Tag}}checked{{end}}{{end}}>
+                            <span>{{.}}</span>
+                        </label>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+        {{end}}
+    </form>
+</div>
+{{end}}

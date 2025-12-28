@@ -1,0 +1,48 @@
+{{define "pagination"}}
+<div class="pagination">
+    <div class="pagination-info">
+        Showing {{if .Items}}{{len .Items}}{{else}}0{{end}} of {{.TotalItems}} results
+        (Page {{.CurrentPage}} of {{.TotalPages}})
+    </div>
+
+    {{if or .HasPrev .HasNext}}
+    <div class="pagination-controls">
+        {{if .HasPrev}}
+            <a href="?{{if .Filters.SearchQuery}}search={{.Filters.SearchQuery}}&{{end}}{{if .Filters.SourceFilter}}source={{.Filters.SourceFilter}}&{{end}}{{range .Filters.TagFilters}}tags={{.}}&{{end}}{{if .Filters.Bookmarked}}bookmarked=true&{{end}}page={{.PrevPage}}"
+               class="btn btn-secondary">
+                &larr; Previous
+            </a>
+        {{end}}
+
+        <span class="page-numbers">
+            {{if gt .CurrentPage 2}}
+                <a href="?{{if .Filters.SearchQuery}}search={{.Filters.SearchQuery}}&{{end}}{{if .Filters.SourceFilter}}source={{.Filters.SourceFilter}}&{{end}}{{range .Filters.TagFilters}}tags={{.}}&{{end}}{{if .Filters.Bookmarked}}bookmarked=true&{{end}}page=1">1</a>
+                {{if gt .CurrentPage 3}}...{{end}}
+            {{end}}
+
+            {{if .HasPrev}}
+                <a href="?{{if .Filters.SearchQuery}}search={{.Filters.SearchQuery}}&{{end}}{{if .Filters.SourceFilter}}source={{.Filters.SourceFilter}}&{{end}}{{range .Filters.TagFilters}}tags={{.}}&{{end}}{{if .Filters.Bookmarked}}bookmarked=true&{{end}}page={{.PrevPage}}">{{.PrevPage}}</a>
+            {{end}}
+
+            <span class="current-page">{{.CurrentPage}}</span>
+
+            {{if .HasNext}}
+                <a href="?{{if .Filters.SearchQuery}}search={{.Filters.SearchQuery}}&{{end}}{{if .Filters.SourceFilter}}source={{.Filters.SourceFilter}}&{{end}}{{range .Filters.TagFilters}}tags={{.}}&{{end}}{{if .Filters.Bookmarked}}bookmarked=true&{{end}}page={{.NextPage}}">{{.NextPage}}</a>
+            {{end}}
+
+            {{if lt .CurrentPage (sub .TotalPages 1)}}
+                {{if lt .CurrentPage (sub .TotalPages 2)}}...{{end}}
+                <a href="?{{if .Filters.SearchQuery}}search={{.Filters.SearchQuery}}&{{end}}{{if .Filters.SourceFilter}}source={{.Filters.SourceFilter}}&{{end}}{{range .Filters.TagFilters}}tags={{.}}&{{end}}{{if .Filters.Bookmarked}}bookmarked=true&{{end}}page={{.TotalPages}}">{{.TotalPages}}</a>
+            {{end}}
+        </span>
+
+        {{if .HasNext}}
+            <a href="?{{if .Filters.SearchQuery}}search={{.Filters.SearchQuery}}&{{end}}{{if .Filters.SourceFilter}}source={{.Filters.SourceFilter}}&{{end}}{{range .Filters.TagFilters}}tags={{.}}&{{end}}{{if .Filters.Bookmarked}}bookmarked=true&{{end}}page={{.NextPage}}"
+               class="btn btn-secondary">
+                Next &rarr;
+            </a>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+{{end}}

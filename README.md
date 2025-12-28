@@ -12,6 +12,7 @@
 - **Multi-source aggregation**: Subscribe to GitHub repositories (Fabric, awesome-chatgpt-prompts, etc.)
 - **Full-text search**: Fast bleve-powered indexing and search
 - **Interactive TUI**: Real-time filtering with Bubbletea
+- **Web Interface**: Browse prompts in your browser with a clean, responsive UI
 - **Bookmarking**: Save prompts with custom aliases and tags
 - **Unix pipe-friendly**: Clean output protocol for piping to execution tools
 - **Tool-agnostic**: Works with claude, llm, fabric, mods, and any CLI tool
@@ -38,8 +39,12 @@ make install
 # Subscribe to a prompt source
 pkit subscribe fabric/patterns
 
-# Interactive browser
+# Interactive browser (TUI)
 pkit find
+
+# Start web server
+pkit serve --port 8080
+# Open http://127.0.0.1:8080 in your browser
 
 # Search for prompts
 pkit search "code review"

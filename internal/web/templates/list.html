@@ -1,0 +1,35 @@
+{{define "list"}}
+{{template "layout" .}}
+{{end}}
+
+{{define "title"}}Prompts - pkit{{end}}
+
+{{define "content"}}
+<div class="list-page">
+    <div class="page-header">
+        <h2>Prompts</h2>
+        <p class="result-count">{{.TotalItems}} prompts</p>
+    </div>
+
+    {{template "filters" .}}
+
+    {{if .Items}}
+        <div class="prompt-list">
+            {{range .Items}}
+                {{template "prompt-card" .}}
+            {{end}}
+        </div>
+
+        {{template "pagination" .}}
+    {{else}}
+        <div class="empty-state">
+            <p>No prompts found.</p>
+            {{if .Filters.SearchQuery}}
+                <p>Try adjusting your search or filters.</p>
+            {{else}}
+                <p>Subscribe to sources with: <code>pkit subscribe &lt;source&gt;</code></p>
+            {{end}}
+        </div>
+    {{end}}
+</div>
+{{end}}

@@ -59,6 +59,7 @@ func customHelp(cmd *cobra.Command, args []string) {
 		"find",
 		"get",
 		"show",
+		"serve",
 		"bookmark",
 		"alias",
 		"tag",
