@@ -69,6 +69,7 @@ func TestSourceValidation(t *testing.T) {
 }
 
 func TestBookmarkValidation(t *testing.T) {
+	now := time.Now()
 	tests := []struct {
 		name     string
 		bookmark Bookmark
@@ -77,54 +78,32 @@ func TestBookmarkValidation(t *testing.T) {
 		{
 			name: "valid bookmark",
 			bookmark: Bookmark{
-				Alias:      "review",
 				PromptID:   "fabric:code-review",
-				SourceID:   "fabric",
-				PromptName: "code-review",
-				Tags:       []string{"dev", "security"},
-				CreatedAt:  time.Now(),
-				UpdatedAt:  time.Now(),
+				Notes:      "My code review notes",
+				CreatedAt:  now,
+				UpdatedAt:  now,
 				UsageCount: 5,
 			},
 			wantErr: false,
 		},
 		{
-			name: "invalid alias format (uppercase)",
+			name: "valid bookmark without notes",
 			bookmark: Bookmark{
-				Alias:      "Review",
-				PromptID:   "fabric:code-review",
-				SourceID:   "fabric",
-				PromptName: "code-review",
+				PromptID:   "fabric:summarize",
+				CreatedAt:  now,
+				UpdatedAt:  now,
+				UsageCount: 0,
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
-			name: "reserved command as alias",
+			name: "invalid bookmark with empty prompt_id",
 			bookmark: Bookmark{
-				Alias:      "help",
-				PromptID:   "fabric:code-review",
-				SourceID:   "fabric",
-				PromptName: "code-review",
-			},
-			wantErr: true,
-		},
-		{
-			name: "invalid prompt ID format",
-			bookmark: Bookmark{
-				Alias:      "review",
-				PromptID:   "invalid_prompt_id",
-				SourceID:   "fabric",
-				PromptName: "code-review",
-			},
-			wantErr: true,
-		},
-		{
-			name: "mismatched prompt ID",
-			bookmark: Bookmark{
-				Alias:      "review",
-				PromptID:   "fabric:wrong",
-				SourceID:   "fabric",
-				PromptName: "code-review",
+				PromptID:   "",
+				Notes:      "Some notes",
+				CreatedAt:  now,
+				UpdatedAt:  now,
+				UsageCount: 0,
 			},
 			wantErr: true,
 		},
