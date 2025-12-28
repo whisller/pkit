@@ -136,15 +136,15 @@ func (i PromptItem) FilterValue() string {
 
 // FinderModel is the Bubbletea model for the interactive finder
 type FinderModel struct {
-	list             list.Model
-	keys             KeyMap
-	allPrompts       []models.Prompt
-	filteredPrompts  []models.Prompt
-	width            int
-	height           int
-	activePanel      PanelType
-	filterCursor     int
-	filterSection    FilterSection
+	list            list.Model
+	keys            KeyMap
+	allPrompts      []models.Prompt
+	filteredPrompts []models.Prompt
+	width           int
+	height          int
+	activePanel     PanelType
+	filterCursor    int
+	filterSection   FilterSection
 
 	// Filter state
 	availableSources []string
@@ -159,11 +159,11 @@ type FinderModel struct {
 	textInput       textinput.Model
 	statusMessage   string
 	statusTimeout   time.Time
-	currentPromptID string          // ID of prompt being operated on
-	currentPrompt   *models.Prompt  // Full prompt for preview
-	promptTags      []string        // Tags for current prompt (for removal)
+	currentPromptID string         // ID of prompt being operated on
+	currentPrompt   *models.Prompt // Full prompt for preview
+	promptTags      []string       // Tags for current prompt (for removal)
 	tagRemoveCursor int
-	previewScroll   int             // Scroll position for preview
+	previewScroll   int // Scroll position for preview
 
 	// Action state
 	selectedID     string
@@ -220,10 +220,10 @@ func NewFinderModel(prompts []models.Prompt) FinderModel {
 	// Create list (will be populated with filtered items)
 	delegate := list.NewDefaultDelegate()
 	l := list.New([]list.Item{}, delegate, 0, 0)
-	l.SetShowTitle(false)      // Hide title - we show it in the border instead
+	l.SetShowTitle(false) // Hide title - we show it in the border instead
 	l.SetShowHelp(false)
 	l.SetFilteringEnabled(true)
-	l.SetShowStatusBar(false)  // Hide status bar - we show count in border title
+	l.SetShowStatusBar(false) // Hide status bar - we show count in border title
 
 	// Create text input for dialogs
 	ti := textinput.New()

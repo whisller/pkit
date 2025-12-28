@@ -89,10 +89,10 @@ func (p *AwesomeChatGPTParser) ParsePrompts(source *models.Source) ([]models.Pro
 		}
 
 		// Parse CSV row
-		act := row[0]        // Column: act
-		promptText := row[1] // Column: prompt
-		forDevs := row[2]    // Column: for_devs
-		promptType := row[3] // Column: type
+		act := row[0]         // Column: act
+		promptText := row[1]  // Column: prompt
+		forDevs := row[2]     // Column: for_devs
+		promptType := row[3]  // Column: type
 		contributor := row[4] // Column: contributor
 
 		// Derive metadata

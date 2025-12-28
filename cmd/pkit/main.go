@@ -19,11 +19,11 @@ var rootCmd = &cobra.Command{
 It aggregates prompts from GitHub repositories (Fabric, awesome-chatgpt-prompts, etc.),
 provides full-text search, interactive browsing, and seamless piping to execution tools
 like claude, llm, fabric, and mods.`,
-	Version:               version,
-	SilenceUsage:          true,
-	SilenceErrors:         true,
-	DisableFlagParsing:    false,
-	DisableSuggestions:    false,
+	Version:                    version,
+	SilenceUsage:               true,
+	SilenceErrors:              true,
+	DisableFlagParsing:         false,
+	DisableSuggestions:         false,
 	SuggestionsMinimumDistance: 2,
 }
 

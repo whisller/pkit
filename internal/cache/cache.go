@@ -70,4 +70,3 @@ func WritePromptToCache(sourceID, promptName, content string) (string, error) {
 	relativePath := filepath.Join("cache", sourceID, filename)
 	return relativePath, nil
 }
-

@@ -335,9 +335,9 @@ func subscribeMultipleSources(mgr *source.Manager, indexer *index.Indexer, cfg *
 
 // Repository aliases for common prompt sources
 var repositoryAliases = map[string]string{
-	"fabric":         "danielmiessler/fabric",
+	"fabric":          "danielmiessler/fabric",
 	"fabric/patterns": "danielmiessler/fabric",
-	"awesome":        "f/awesome-chatgpt-prompts",
+	"awesome":         "f/awesome-chatgpt-prompts",
 	"awesome-chatgpt": "f/awesome-chatgpt-prompts",
 }
 
