@@ -1821,7 +1821,7 @@ func (m *FinderModel) renderSearchBar() string {
 
 	// Pad to match list item width exactly
 	if searchBarWidth < listItemWidth {
-		searchBar = searchBar + strings.Repeat(" ", listItemWidth - searchBarWidth)
+		searchBar = searchBar + strings.Repeat(" ", listItemWidth-searchBarWidth)
 	}
 
 	return searchBar
