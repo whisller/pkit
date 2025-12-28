@@ -144,7 +144,8 @@ func (i *Indexer) hitToPrompt(hit *search.DocumentMatch) (models.Prompt, error) 
 		prompt.Author = val
 	}
 
-	// Content may be stored in index (for single-file sources) or loaded from file (multi-file sources)
+	// Content is NOT stored in index - it's loaded dynamically from source files when needed
+	// The content field may still be in hit.Fields but will be empty
 	if val, ok := hit.Fields["content"].(string); ok {
 		prompt.Content = val
 	}

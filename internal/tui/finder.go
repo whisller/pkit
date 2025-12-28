@@ -12,7 +12,9 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/rmhubbert/bubbletea-overlay"
 	"github.com/whisller/pkit/internal/bookmark"
+	"github.com/whisller/pkit/internal/source"
 	"github.com/whisller/pkit/internal/tag"
 	"github.com/whisller/pkit/pkg/models"
 )
@@ -218,10 +220,10 @@ func NewFinderModel(prompts []models.Prompt) FinderModel {
 	// Create list (will be populated with filtered items)
 	delegate := list.NewDefaultDelegate()
 	l := list.New([]list.Item{}, delegate, 0, 0)
-	l.Title = "Prompts"
+	l.SetShowTitle(false)      // Hide title - we show it in the border instead
 	l.SetShowHelp(false)
 	l.SetFilteringEnabled(true)
-	l.SetShowStatusBar(true)
+	l.SetShowStatusBar(false)  // Hide status bar - we show count in border title
 
 	// Create text input for dialogs
 	ti := textinput.New()
@@ -275,17 +277,26 @@ func (m *FinderModel) applyFilters() {
 			continue
 		}
 
-		// Filter by tags (if any tags selected)
-		if len(m.selectedTags) > 0 {
+		// Filter by tags (if any tags actually selected)
+		// Count how many tags are actually selected (value = true)
+		hasAnySelectedTag := false
+		for _, selected := range m.selectedTags {
+			if selected {
+				hasAnySelectedTag = true
+				break
+			}
+		}
+
+		if hasAnySelectedTag {
 			userTags := promptTagMap[p.ID]
-			hasSelectedTag := false
+			hasMatchingTag := false
 			for _, t := range userTags {
 				if m.selectedTags[t] {
-					hasSelectedTag = true
+					hasMatchingTag = true
 					break
 				}
 			}
-			if !hasSelectedTag {
+			if !hasMatchingTag {
 				continue
 			}
 		}
@@ -359,10 +370,17 @@ func (m FinderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Split width: 30% for filters, 70% for list
 		filterWidth := int(float64(msg.Width) * 0.3)
-		listWidth := msg.Width - filterWidth - 2
+		listWidth := msg.Width - filterWidth - 4 // Account for borders and padding
 
-		m.list.SetWidth(listWidth)
-		m.list.SetHeight(msg.Height - 6)
+		// Calculate list height: total height - (title + directory section + status + help + borders)
+		// Title: 1, Directory: 4, Status: 1, Help: 2, Borders/padding: 6 = 14 total overhead
+		listHeight := msg.Height - 14
+		if listHeight < 10 {
+			listHeight = 10 // Minimum height
+		}
+
+		m.list.SetWidth(listWidth - 4) // Account for border padding
+		m.list.SetHeight(listHeight)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -755,6 +773,13 @@ func (m FinderModel) updateListPanel(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Preview prompt
 		if selectedPrompt != nil {
 			m.currentPrompt = &selectedPrompt.Prompt
+
+			// Load full content from source file
+			if err := source.LoadPromptContent(m.currentPrompt); err != nil {
+				m.setStatus(fmt.Sprintf("Error loading content: %v", err), 3*time.Second)
+				return m, nil
+			}
+
 			m.inputMode = ModeViewingPrompt
 			m.previewScroll = 0
 			return m, nil
@@ -869,11 +894,6 @@ func (m FinderModel) View() string {
 		return ""
 	}
 
-	// Handle input modes
-	if m.inputMode != ModeNormal {
-		return m.renderInputDialog()
-	}
-
 	// Calculate dimensions
 	filterWidth := int(float64(m.width) * 0.3)
 	if filterWidth < 30 {
@@ -912,7 +932,16 @@ func (m FinderModel) View() string {
 		help = "p: preview | enter: select | ctrl+g: get | ctrl+s: bookmark | ctrl+t: tags | ctrl+a: alias | tab: filters"
 	}
 
-	return fmt.Sprintf("%s\n%s%s", mainView, statusView, helpStyle.Render(help))
+	baseView := fmt.Sprintf("%s\n%s%s", mainView, statusView, helpStyle.Render(help))
+
+	// Overlay dialogs/preview on top of base view using bubbletea-overlay library
+	if m.inputMode != ModeNormal {
+		dialog := m.renderInputDialog()
+		// Center the dialog on the base view
+		return overlay.Composite(dialog, baseView, overlay.Center, overlay.Center, 0, 0)
+	}
+
+	return baseView
 }
 
 // renderInputDialog renders the input dialog
@@ -978,13 +1007,7 @@ func (m *FinderModel) renderInputDialog() string {
 		content.String(),
 		helpStyle.Render(help))
 
-	return lipgloss.Place(
-		m.width,
-		m.height,
-		lipgloss.Center,
-		lipgloss.Center,
-		dialogStyle.Render(dialog),
-	)
+	return dialogStyle.Render(dialog)
 }
 
 // renderPromptPreview renders the prompt preview dialog
@@ -1014,7 +1037,7 @@ func (m *FinderModel) renderPromptPreview() string {
 	contentStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("252"))
 
-	// Calculate available dimensions (80% of screen)
+	// Calculate available dimensions (60% of screen for comfortable viewing)
 	dialogWidth := int(float64(m.width) * 0.8)
 	if dialogWidth > 100 {
 		dialogWidth = 100
@@ -1023,12 +1046,12 @@ func (m *FinderModel) renderPromptPreview() string {
 		dialogWidth = 60
 	}
 
-	dialogHeight := int(float64(m.height) * 0.8)
-	if dialogHeight > 40 {
-		dialogHeight = 40
+	dialogHeight := int(float64(m.height) * 0.6)
+	if dialogHeight > 30 {
+		dialogHeight = 30
 	}
-	if dialogHeight < 20 {
-		dialogHeight = 20
+	if dialogHeight < 15 {
+		dialogHeight = 15
 	}
 
 	// Build metadata
@@ -1125,30 +1148,95 @@ func (m *FinderModel) renderPromptPreview() string {
 	dialog.WriteString("\n")
 	dialog.WriteString(helpStyle.Render("↑/↓: scroll | PgUp/PgDn: page | Home: top | q/Esc: close"))
 
-	styledDialog := dialogStyle.Width(dialogWidth).Height(dialogHeight).Render(dialog.String())
+	return dialogStyle.Width(dialogWidth).Height(dialogHeight).Render(dialog.String())
+}
 
-	return lipgloss.Place(
-		m.width,
-		m.height,
-		lipgloss.Center,
-		lipgloss.Center,
-		styledDialog,
-	)
+// renderBorderedBox renders content with a border and title embedded in the top border
+func renderBorderedBox(title string, content string, width int, active bool) string {
+	// Ensure minimum width
+	if width < 10 {
+		width = 10
+	}
+
+	// Border color based on active state
+	var borderColor lipgloss.Color
+	if active {
+		borderColor = lipgloss.Color("205")
+	} else {
+		borderColor = lipgloss.Color("240")
+	}
+
+	// Title style
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("205"))
+
+	// Calculate padding for top border
+	// Format: ╭─ TITLE ─────────╮
+	// That's: corner(1) + "─ "(2) + title + " "(1) + dashes + corner(1)
+	titleLen := len(title)
+	usedWidth := 1 + 2 + titleLen + 1 + 1 // corners + "─ " + title + " " + corner
+	remainingWidth := width - usedWidth
+	if remainingWidth < 1 {
+		remainingWidth = 1
+	}
+
+	// Build top border: ╭─ TITLE ─────────╮
+	topBorder := lipgloss.NewStyle().Foreground(borderColor).Render("╭─ ")
+	topBorder += titleStyle.Render(title)
+	topBorder += lipgloss.NewStyle().Foreground(borderColor).Render(" " + strings.Repeat("─", remainingWidth) + "╮")
+
+	// Split content into lines and add side borders
+	lines := strings.Split(content, "\n")
+	var borderedLines []string
+	borderedLines = append(borderedLines, topBorder)
+
+	// Content width: total - left border(2) - right border(2)
+	contentWidth := width - 4
+	if contentWidth < 1 {
+		contentWidth = 1
+	}
+
+	for _, line := range lines {
+		// Use visual width (ignoring ANSI codes) for proper alignment
+		visualWidth := lipgloss.Width(line)
+
+		// Truncate if too long (using visual width)
+		if visualWidth > contentWidth {
+			// For truncation, we need to be more careful with ANSI codes
+			// For now, just use the line as-is and let it overflow
+			line = line
+		}
+
+		// Pad to exact width
+		padding := contentWidth - visualWidth
+		if padding > 0 {
+			line = line + strings.Repeat(" ", padding)
+		}
+
+		borderedLine := lipgloss.NewStyle().Foreground(borderColor).Render("│ ") +
+			line +
+			lipgloss.NewStyle().Foreground(borderColor).Render(" │")
+		borderedLines = append(borderedLines, borderedLine)
+	}
+
+	// Bottom border
+	bottomWidth := width - 2
+	if bottomWidth < 1 {
+		bottomWidth = 1
+	}
+	bottomBorder := lipgloss.NewStyle().Foreground(borderColor).Render("╰" + strings.Repeat("─", bottomWidth) + "╯")
+	borderedLines = append(borderedLines, bottomBorder)
+
+	return strings.Join(borderedLines, "\n")
 }
 
 // renderFiltersPanel renders the left filters panel
 func (m *FinderModel) renderFiltersPanel(width int) string {
-	// Title style for panel header
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("205")).
-		Padding(0, 1)
-
 	// Section header style
 	sectionStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("39")).
-		MarginTop(1)
+		Foreground(lipgloss.Color("39"))
 
 	// Content builder
 	var content strings.Builder
@@ -1214,36 +1302,16 @@ func (m *FinderModel) renderFiltersPanel(width int) string {
 	// Stats
 	statsStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
+		Italic(true).
 		MarginTop(1)
-	content.WriteString(statsStyle.Render(fmt.Sprintf("\nShowing: %d/%d prompts", len(m.filteredPrompts), len(m.allPrompts))))
+	content.WriteString("\n" + statsStyle.Render(fmt.Sprintf("Showing: %d/%d prompts", len(m.filteredPrompts), len(m.allPrompts))))
 
-	// Border style
-	var borderColor lipgloss.Color
-	if m.activePanel == PanelFilters {
-		borderColor = lipgloss.Color("205")
-	} else {
-		borderColor = lipgloss.Color("240")
-	}
-
-	borderStyle := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor).
-		Padding(1).
-		Width(width - 2)
-
-	// Add title and wrap in border
-	panel := fmt.Sprintf("%s\n\n%s", titleStyle.Render("FILTERS"), content.String())
-	return borderStyle.Render(panel)
+	// Render with title embedded in top border
+	return renderBorderedBox("FILTERS", content.String(), width, m.activePanel == PanelFilters)
 }
 
 // renderListPanel renders the right list panel with directory info
 func (m *FinderModel) renderListPanel(width int) string {
-	// Title style for panel header
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("205")).
-		Padding(0, 1)
-
 	// Get current working directory
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -1255,26 +1323,29 @@ func (m *FinderModel) renderListPanel(width int) string {
 		Foreground(lipgloss.Color("241")).
 		Italic(true)
 
-	// Border style
-	var borderColor lipgloss.Color
-	if m.activePanel == PanelList {
-		borderColor = lipgloss.Color("205")
-	} else {
-		borderColor = lipgloss.Color("240")
+	dirLabelStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("39"))
+
+	// Build prompts section with count in title
+	promptsContent := m.list.View()
+	itemCount := len(m.filteredPrompts)
+	itemWord := "items"
+	if itemCount == 1 {
+		itemWord = "item"
 	}
+	promptsTitle := fmt.Sprintf("PROMPTS (%d %s)", itemCount, itemWord)
+	borderedPrompts := renderBorderedBox(promptsTitle, promptsContent, width, m.activePanel == PanelList)
 
-	borderStyle := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor).
-		Padding(1).
-		Width(width - 2)
+	// Build directory info section
+	var dirContent strings.Builder
+	dirContent.WriteString(dirLabelStyle.Render("Current Directory"))
+	dirContent.WriteString("\n")
+	dirContent.WriteString(dirStyle.Render(fmt.Sprintf("📁 %s", cwd)))
+	borderedDir := renderBorderedBox("DIRECTORY", dirContent.String(), width, false)
 
-	// Build panel content
-	listContent := m.list.View()
-	dirInfo := dirStyle.Render(fmt.Sprintf("📁 %s", cwd))
-
-	panel := fmt.Sprintf("%s\n\n%s\n\n%s", titleStyle.Render("PROMPTS"), listContent, dirInfo)
-	return borderStyle.Render(panel)
+	// Combine sections vertically
+	return lipgloss.JoinVertical(lipgloss.Left, borderedPrompts, borderedDir)
 }
 
 // SelectedID returns the selected prompt ID

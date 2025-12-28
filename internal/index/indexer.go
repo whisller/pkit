@@ -86,11 +86,10 @@ func buildIndexMapping() mapping.IndexMapping {
 	docMapping.AddFieldMappingsAt("tags", tagsField)
 
 	// Content field (text)
-	// IMPORTANT: Store=true for single-file sources (awesome-chatgpt), false for multi-file (fabric)
-	// Multi-file sources load content from filesystem, single-file sources load from index
+	// IMPORTANT: Store=false to save space. Content is loaded dynamically from source files when needed.
 	contentField := bleve.NewTextFieldMapping()
 	contentField.Analyzer = "en"
-	contentField.Store = true // Store content for single-file sources, empty for multi-file
+	contentField.Store = false // Do NOT store content - load dynamically from source files
 	contentField.IncludeInAll = true
 	docMapping.AddFieldMappingsAt("content", contentField)
 
