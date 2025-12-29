@@ -16,15 +16,11 @@
 
 ---
 
-## Demo
-
 <!-- TODO: Add demo.gif here -->
 <div align="center">
     <img src="docs/demo.gif" alt="pkit demo" width="800"/>
     <p><em>Interactive TUI for browsing and searching prompts</em></p>
 </div>
-
-> **Note:** Demo GIF coming soon. Create with `vhs demo.tape` after installing [VHS](https://github.com/charmbracelet/vhs).
 
 ---
 
@@ -65,10 +61,13 @@ make install
 # Subscribe to a prompt source
 pkit subscribe fabric/patterns
 
-# Interactive browser (TUI)
+# or multiple sources at once
+pkit subscribe fabric/patterns f/awesome-chatgpt-prompts
+
+# Interactive browser (TUI) where you can interactively do all actions
 pkit find
 
-# Start web server
+# Start web server, where you can use your browser to manage your prompts
 pkit serve --port 8080
 # Open http://127.0.0.1:8080 in your browser
 
@@ -85,19 +84,6 @@ pkit get review | claude -p "analyse me ~/main.go"
 pkit review | claude -p "analyse me ~/main.go"
 ```
 
-### Advanced Usage
-
-#### Multiple Sources
-```bash
-# Subscribe to multiple sources at once
-pkit subscribe fabric/patterns f/awesome-chatgpt-prompts
-
-# Check subscription status
-pkit status
-
-# Upgrade all sources
-pkit upgrade --all
-```
 
 #### Bookmarks and Tags
 ```bash
@@ -243,21 +229,3 @@ make coverage
 # Clean artifacts
 make clean
 ```
-
-## Documentation
-
-- [Specification](specs/001-phase1-mvp/spec.md) - Feature requirements
-- [Plan](specs/001-phase1-mvp/plan.md) - Implementation plan
-- [Tasks](specs/001-phase1-mvp/tasks.md) - Implementation tasks
-- [Quickstart](specs/001-phase1-mvp/quickstart.md) - Developer guide
-- [Contracts](specs/001-phase1-mvp/contracts/) - Command specifications
-
-## License
-
-See LICENSE file.
-
-## Contributing
-
-This project is in early development (Phase 1 MVP). Contributions welcome once core features are stable.
-
-For development workflow and coding standards, see [quickstart.md](specs/001-phase1-mvp/quickstart.md).
