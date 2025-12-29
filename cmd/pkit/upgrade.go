@@ -100,8 +100,35 @@ func runUpgrade(cmd *cobra.Command, args []string) (err error) {
 
 			hasUpdates, _, err := mgr.CheckForUpdates(&src)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "→ Warning: failed to check updates for %s: %v\n", src.ID, err)
-				continue
+				// Check if this is an authentication error
+				if source.IsAuthenticationError(err) && token == "" {
+					fmt.Fprintf(os.Stderr, "→ Warning: %s requires authentication\n", src.ID)
+
+					// Prompt for authentication (only once for all sources)
+					newToken, authErr := handleAuthenticationError(src.URL)
+					if authErr != nil {
+						fmt.Fprintf(os.Stderr, "→ Warning: authentication failed for %s: %v\n", src.ID, authErr)
+						continue
+					}
+					if newToken == "" {
+						fmt.Fprintf(os.Stderr, "→ Skipping %s (authentication required)\n", src.ID)
+						continue
+					}
+
+					// Update token for remaining operations
+					token = newToken
+					mgr = source.NewManager(token)
+
+					// Retry check for this source
+					hasUpdates, _, err = mgr.CheckForUpdates(&src)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "→ Warning: failed to check updates for %s: %v\n", src.ID, err)
+						continue
+					}
+				} else {
+					fmt.Fprintf(os.Stderr, "→ Warning: failed to check updates for %s: %v\n", src.ID, err)
+					continue
+				}
 			}
 
 			if hasUpdates {
@@ -137,7 +164,28 @@ func runUpgrade(cmd *cobra.Command, args []string) (err error) {
 		if !upgradeForce {
 			hasUpdates, _, err := mgr.CheckForUpdates(&sourcesToUpgrade[0])
 			if err != nil {
-				return fmt.Errorf("failed to check updates: %w", err)
+				// Check if this is an authentication error
+				if source.IsAuthenticationError(err) {
+					newToken, authErr := handleAuthenticationError(sourcesToUpgrade[0].URL)
+					if authErr != nil {
+						return fmt.Errorf("authentication failed: %w", authErr)
+					}
+					if newToken == "" {
+						return fmt.Errorf("authentication required for %s", sourceID)
+					}
+
+					// Update manager with new token
+					token = newToken
+					mgr = source.NewManager(token)
+
+					// Retry check
+					hasUpdates, _, err = mgr.CheckForUpdates(&sourcesToUpgrade[0])
+					if err != nil {
+						return fmt.Errorf("failed to check updates: %w", err)
+					}
+				} else {
+					return fmt.Errorf("failed to check updates: %w", err)
+				}
 			}
 
 			if !hasUpdates {

@@ -75,7 +75,8 @@ func PullRepository(localPath, token string) (commitSHA string, err error) {
 	// Pull latest changes
 	err = worktree.Pull(pullOpts)
 	if err != nil && err != git.NoErrAlreadyUpToDate {
-		return "", fmt.Errorf("failed to pull repository: %w", err)
+		// Wrap authentication errors for better handling
+		return "", WrapAuthenticationError(localPath, fmt.Errorf("failed to pull repository: %w", err))
 	}
 
 	// Get HEAD commit SHA
@@ -129,7 +130,8 @@ func FetchRemote(localPath, token string) (remoteSHA string, err error) {
 	// Fetch from remote
 	err = repo.Fetch(fetchOpts)
 	if err != nil && err != git.NoErrAlreadyUpToDate {
-		return "", fmt.Errorf("failed to fetch from remote: %w", err)
+		// Wrap authentication errors for better handling
+		return "", WrapAuthenticationError(localPath, fmt.Errorf("failed to fetch from remote: %w", err))
 	}
 
 	// Get remote HEAD reference
@@ -138,9 +140,19 @@ func FetchRemote(localPath, token string) (remoteSHA string, err error) {
 		return "", fmt.Errorf("failed to get remote: %w", err)
 	}
 
-	refs, err := remote.List(&git.ListOptions{})
+	// Add auth to list options
+	listOpts := &git.ListOptions{}
+	if token != "" {
+		listOpts.Auth = &http.BasicAuth{
+			Username: "x-access-token",
+			Password: token,
+		}
+	}
+
+	refs, err := remote.List(listOpts)
 	if err != nil {
-		return "", fmt.Errorf("failed to list remote refs: %w", err)
+		// Wrap authentication errors for better handling
+		return "", WrapAuthenticationError(localPath, fmt.Errorf("failed to list remote refs: %w", err))
 	}
 
 	// Find HEAD ref
