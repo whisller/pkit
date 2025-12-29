@@ -152,7 +152,28 @@ Options:
 
 	src, err := mgr.Subscribe(url, localPath)
 	if err != nil {
-		return fmt.Errorf("failed to clone repository: %w", err)
+		// Check if this is an authentication error
+		if source.IsAuthenticationError(err) {
+			// Handle authentication interactively
+			newToken, authErr := handleAuthenticationError(url)
+			if authErr != nil {
+				return fmt.Errorf("authentication failed: %w", authErr)
+			}
+			if newToken == "" {
+				// User cancelled authentication
+				return fmt.Errorf("authentication required for repository: %s", url)
+			}
+
+			// Retry with new token
+			fmt.Fprintln(os.Stderr, "\nRetrying with authentication...")
+			mgr = source.NewManager(newToken)
+			src, err = mgr.Subscribe(url, localPath)
+			if err != nil {
+				return fmt.Errorf("failed to clone repository: %w", err)
+			}
+		} else {
+			return fmt.Errorf("failed to clone repository: %w", err)
+		}
 	}
 
 	// Override format if specified

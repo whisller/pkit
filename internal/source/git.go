@@ -30,7 +30,8 @@ func CloneRepository(url, localPath, token string) (commitSHA string, err error)
 	// Clone repository
 	repo, err := git.PlainClone(localPath, false, cloneOpts)
 	if err != nil {
-		return "", fmt.Errorf("failed to clone repository: %w", err)
+		// Wrap authentication errors for better handling
+		return "", WrapAuthenticationError(url, fmt.Errorf("failed to clone repository: %w", err))
 	}
 
 	// Get HEAD commit SHA
