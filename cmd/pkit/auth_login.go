@@ -23,13 +23,24 @@ This command will prompt you to enter your GitHub token, which will be
 stored securely in your system's keyring.
 
 To create a GitHub Personal Access Token:
-  1. Go to https://github.com/settings/tokens
-  2. Click "Generate new token" → "Generate new token (classic)"
-  3. Give it a descriptive name (e.g., "pkit CLI")
-  4. Select scopes:
-     - For public repos only: no scopes needed
-     - For private repos: check "repo" scope
-  5. Click "Generate token" and copy the token
+
+  Option 1: Fine-grained token (Recommended - More secure)
+    1. Go to: https://github.com/settings/personal-access-tokens/new
+    2. Token name: "pkit CLI"
+    3. Expiration: 90 days recommended
+    4. Repository access: "All repositories" or "Only select repositories"
+    5. Permissions → Repository permissions:
+       - Contents: Read-only (required)
+       - Metadata: Read-only (auto-selected)
+
+  Option 2: Classic token
+    1. Go to: https://github.com/settings/tokens
+    2. Click "Generate new token (classic)"
+    3. Token name: "pkit CLI"
+    4. Select scopes:
+       - "repo" - Full control of private repositories (for private repos)
+       - "public_repo" - Access public repositories (for public repos only)
+       - No scopes - Public repos only with rate limit benefits
 
 Examples:
   pkit auth login                    # Interactive prompt

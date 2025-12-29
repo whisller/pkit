@@ -37,11 +37,22 @@ func handleAuthenticationError(repoURL string) (string, error) {
 
 	// Show instructions for creating a token
 	fmt.Fprintln(os.Stderr, "\nTo create a GitHub Personal Access Token:")
-	fmt.Fprintln(os.Stderr, "  1. Go to: https://github.com/settings/tokens")
-	fmt.Fprintln(os.Stderr, "  2. Click 'Generate new token (classic)'")
-	fmt.Fprintln(os.Stderr, "  3. Give it a name (e.g., 'pkit CLI')")
-	fmt.Fprintln(os.Stderr, "  4. Select scope: 'repo' (for private repositories)")
-	fmt.Fprintln(os.Stderr, "  5. Click 'Generate token' and copy it")
+	fmt.Fprintln(os.Stderr, "\n  Option 1: Fine-grained token (Recommended - More secure)")
+	fmt.Fprintln(os.Stderr, "    1. Go to: https://github.com/settings/personal-access-tokens/new")
+	fmt.Fprintln(os.Stderr, "    2. Token name: 'pkit CLI'")
+	fmt.Fprintln(os.Stderr, "    3. Expiration: 90 days (or your preference)")
+	fmt.Fprintln(os.Stderr, "    4. Repository access: 'All repositories' or 'Only select repositories'")
+	fmt.Fprintln(os.Stderr, "    5. Permissions → Repository permissions:")
+	fmt.Fprintln(os.Stderr, "       - Contents: Read-only")
+	fmt.Fprintln(os.Stderr, "       - Metadata: Read-only (auto-selected)")
+	fmt.Fprintln(os.Stderr, "\n  Option 2: Classic token")
+	fmt.Fprintln(os.Stderr, "    1. Go to: https://github.com/settings/tokens")
+	fmt.Fprintln(os.Stderr, "    2. Click 'Generate new token (classic)'")
+	fmt.Fprintln(os.Stderr, "    3. Token name: 'pkit CLI'")
+	fmt.Fprintln(os.Stderr, "    4. Select scopes:")
+	fmt.Fprintln(os.Stderr, "       - 'repo' (for private repositories)")
+	fmt.Fprintln(os.Stderr, "       - OR 'public_repo' (for public repositories only)")
+	fmt.Fprintln(os.Stderr, "    5. Click 'Generate token' and copy it")
 
 	// Prompt for token
 	fmt.Fprint(os.Stderr, "\nEnter your GitHub Personal Access Token: ")

@@ -103,8 +103,13 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 
 		fmt.Fprintln(os.Stdout, "\nCapabilities:")
 		fmt.Fprintln(os.Stdout, "  ✓ Access public repositories")
-		fmt.Fprintln(os.Stdout, "  ✓ Access private repositories (if token has 'repo' scope)")
 		fmt.Fprintln(os.Stdout, "  ✓ Higher rate limits (5000 requests/hour)")
+		fmt.Fprintln(os.Stdout, "\nPrivate Repository Access:")
+		fmt.Fprintln(os.Stdout, "  Requires one of:")
+		fmt.Fprintln(os.Stdout, "    - Fine-grained token: Contents (Read-only) + Metadata (Read-only)")
+		fmt.Fprintln(os.Stdout, "    - Classic token: 'repo' scope")
+		fmt.Fprintln(os.Stdout, "\n  To verify private repo access, try:")
+		fmt.Fprintln(os.Stdout, "    pkit subscribe owner/private-repo")
 	}
 
 	// Show next steps
