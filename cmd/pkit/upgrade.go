@@ -34,7 +34,6 @@ Examples:
 }
 
 var (
-	upgradeAll     bool
 	upgradeForce   bool
 	upgradeVerbose bool
 )
@@ -42,7 +41,6 @@ var (
 func init() {
 	rootCmd.AddCommand(upgradeCmd)
 
-	upgradeCmd.Flags().BoolVar(&upgradeAll, "all", false, "Upgrade all sources (default behavior, kept for compatibility)")
 	upgradeCmd.Flags().BoolVar(&upgradeForce, "force", false, "Force upgrade even if no updates")
 	upgradeCmd.Flags().BoolVarP(&upgradeVerbose, "verbose", "v", false, "Show detailed progress")
 }
@@ -91,9 +89,7 @@ func runUpgrade(cmd *cobra.Command, args []string) (err error) {
 	var sourcesToUpgrade []models.Source
 
 	// Default to upgrading all sources if no source name provided
-	upgradeAllSources := upgradeAll || len(args) == 0
-
-	if upgradeAllSources {
+	if len(args) == 0 {
 		// Check all sources for updates
 		if upgradeVerbose {
 			fmt.Fprintln(os.Stderr, "→ Checking for updates...")
