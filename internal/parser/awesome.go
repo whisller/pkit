@@ -50,7 +50,10 @@ func (p *AwesomeChatGPTParser) ParsePrompts(source *models.Source) ([]models.Pro
 	if err != nil {
 		return nil, fmt.Errorf("failed to open prompts.csv: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		// File close error on read-only file is rare, ignore
+		_ = file.Close()
+	}()
 
 	reader := csv.NewReader(file)
 

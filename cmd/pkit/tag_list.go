@@ -38,11 +38,13 @@ func runTagList(cmd *cobra.Command, args []string) error {
 		}
 
 		if len(tags) == 0 {
-			fmt.Fprintf(os.Stdout, "No tags found for prompt '%s'\n", promptID)
+			// Output to stdout - error extremely rare (stdout closed/redirected)
+			_, _ = fmt.Fprintf(os.Stdout, "No tags found for prompt '%s'\n", promptID)
 			return nil
 		}
 
-		fmt.Fprintf(os.Stdout, "Tags for '%s': %s\n", promptID, strings.Join(tags, ", "))
+		// Output to stdout - error extremely rare (stdout closed/redirected)
+		_, _ = fmt.Fprintf(os.Stdout, "Tags for '%s': %s\n", promptID, strings.Join(tags, ", "))
 		return nil
 	}
 
@@ -53,7 +55,8 @@ func runTagList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(allTags) == 0 {
-		fmt.Fprintln(os.Stdout, "No tags found. Use 'pkit tag add' to tag prompts.")
+		// Output to stdout - error extremely rare (stdout closed/redirected)
+		_, _ = fmt.Fprintln(os.Stdout, "No tags found. Use 'pkit tag add' to tag prompts.")
 		return nil
 	}
 
@@ -68,7 +71,8 @@ func runTagList(cmd *cobra.Command, args []string) error {
 
 	for _, pt := range allTags {
 		tagsStr := strings.Join(pt.Tags, ", ")
-		table.Append(
+		// table.Append is in-memory operation, error extremely rare
+		_ = table.Append(
 			pt.PromptID,
 			tagsStr,
 		)

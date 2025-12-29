@@ -18,24 +18,25 @@ func PrintPromptText(w io.Writer, prompt *models.Prompt) error {
 // PrintPromptWithMetadata outputs the prompt with human-readable metadata.
 // This is for the "show" command, not for piping.
 func PrintPromptWithMetadata(w io.Writer, prompt *models.Prompt) error {
-	fmt.Fprintf(w, "ID: %s\n", prompt.ID)
-	fmt.Fprintf(w, "Source: %s\n", prompt.SourceID)
-	fmt.Fprintf(w, "Name: %s\n", prompt.Name)
+	// Metadata output - errors extremely rare (writing to os.Stdout)
+	_, _ = fmt.Fprintf(w, "ID: %s\n", prompt.ID)
+	_, _ = fmt.Fprintf(w, "Source: %s\n", prompt.SourceID)
+	_, _ = fmt.Fprintf(w, "Name: %s\n", prompt.Name)
 
 	if prompt.Description != "" {
-		fmt.Fprintf(w, "Description: %s\n", prompt.Description)
+		_, _ = fmt.Fprintf(w, "Description: %s\n", prompt.Description)
 	}
 
 	if len(prompt.Tags) > 0 {
-		fmt.Fprintf(w, "Tags: %s\n", fmt.Sprint(prompt.Tags))
+		_, _ = fmt.Fprintf(w, "Tags: %s\n", fmt.Sprint(prompt.Tags))
 	}
 
 	if prompt.Author != "" {
-		fmt.Fprintf(w, "Author: %s\n", prompt.Author)
+		_, _ = fmt.Fprintf(w, "Author: %s\n", prompt.Author)
 	}
 
-	fmt.Fprintln(w, "\n--- Content ---")
-	fmt.Fprintln(w, prompt.Content)
+	_, _ = fmt.Fprintln(w, "\n--- Content ---")
+	_, _ = fmt.Fprintln(w, prompt.Content)
 
 	return nil
 }

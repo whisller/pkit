@@ -32,7 +32,7 @@ func init() {
 	bookmarkAddCmd.Flags().StringVar(&bookmarkAddNotes, "notes", "", "Optional notes")
 }
 
-func runBookmarkAdd(cmd *cobra.Command, args []string) error {
+func runBookmarkAdd(cmd *cobra.Command, args []string) (err error) {
 	promptID := args[0]
 
 	// Check if prompt exists in index
@@ -46,7 +46,11 @@ func runBookmarkAdd(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open index: %w", err)
 	}
-	defer indexer.Close()
+	defer func() {
+		if closeErr := indexer.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("failed to close index: %w", closeErr)
+		}
+	}()
 
 	prompt, err := indexer.GetPromptByID(promptID)
 	if err != nil {
@@ -70,7 +74,7 @@ func runBookmarkAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to add bookmark: %w", err)
 	}
 
-	fmt.Fprintf(os.Stdout, "Bookmarked prompt '%s'\n", prompt.Name)
+	_, _ = fmt.Fprintf(os.Stdout, "Bookmarked prompt '%s'\n", prompt.Name)
 
 	return nil
 }

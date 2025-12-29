@@ -62,7 +62,7 @@ func init() {
 	searchCmd.Flags().BoolVarP(&searchContent, "content", "c", false, "Include full prompt content in results")
 }
 
-func runSearch(cmd *cobra.Command, args []string) error {
+func runSearch(cmd *cobra.Command, args []string) (err error) {
 	query := strings.Join(args, " ")
 
 	// Load configuration to check if sources exist
@@ -73,7 +73,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 
 	// Check if any sources are subscribed
 	if len(cfg.Sources) == 0 {
-		return fmt.Errorf(`No sources subscribed
+		return fmt.Errorf(`no sources subscribed
 
 Subscribe to sources first:
   pkit subscribe fabric/patterns
@@ -95,7 +95,11 @@ Then search:
 	if err != nil {
 		return fmt.Errorf("failed to open index: %w", err)
 	}
-	defer indexer.Close()
+	defer func() {
+		if closeErr := indexer.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("failed to close index: %w", closeErr)
+		}
+	}()
 
 	// Build search options
 	searchOpts := index.SearchOptions{
@@ -221,7 +225,7 @@ func outputTable(results []index.SearchResult, bookmarkMap map[string]bool, tagM
 
 	// Configure table to fit terminal width with text wrapping
 	table.Options(
-		tablewriter.WithTableMax(termWidth),
+		tablewriter.WithMaxWidth(termWidth),
 		tablewriter.WithRowAutoWrap(1),
 	)
 
@@ -258,9 +262,10 @@ func outputTable(results []index.SearchResult, bookmarkMap map[string]bool, tagM
 			if len(content) > 80 {
 				contentPreview = content[:80] + "..."
 			}
-			table.Append(id, result.Prompt.Description, tagsStr, contentPreview)
+			// table.Append is in-memory operation, error extremely rare
+			_ = table.Append(id, result.Prompt.Description, tagsStr, contentPreview)
 		} else {
-			table.Append(id, result.Prompt.Description, tagsStr)
+			_ = table.Append(id, result.Prompt.Description, tagsStr)
 		}
 	}
 

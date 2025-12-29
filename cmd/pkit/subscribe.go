@@ -47,7 +47,7 @@ func init() {
 	subscribeCmd.Flags().BoolVar(&subscribeDebug, "debug", false, "Show full trace including timing information")
 }
 
-func runSubscribe(cmd *cobra.Command, args []string) error {
+func runSubscribe(cmd *cobra.Command, args []string) (err error) {
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -80,7 +80,11 @@ func runSubscribe(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize index: %w", err)
 	}
-	defer indexer.Close()
+	defer func() {
+		if closeErr := indexer.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("failed to close index: %w", closeErr)
+		}
+	}()
 
 	// Process multiple sources
 	if len(args) > 1 {
@@ -109,7 +113,7 @@ func subscribeSingleSource(mgr *source.Manager, indexer *index.Indexer, cfg *mod
 	// Check if source already exists
 	for _, existingSrc := range cfg.Sources {
 		if existingSrc.ID == sourceID {
-			return fmt.Errorf(`Source '%s' already exists
+			return fmt.Errorf(`source '%s' already exists
 
 Existing source:
   URL: %s
@@ -361,7 +365,7 @@ func parseSourceURL(source string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf(`Invalid source format: "%s"
+	return "", fmt.Errorf(`invalid source format: "%s"
 
 Expected formats:
   Alias: fabric, awesome (see common aliases)

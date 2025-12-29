@@ -40,7 +40,7 @@ func init() {
 	reindexCmd.Flags().BoolVarP(&reindexVerbose, "verbose", "v", false, "Show detailed progress")
 }
 
-func runReindex(cmd *cobra.Command, args []string) error {
+func runReindex(cmd *cobra.Command, args []string) (err error) {
 	// Load config
 	cfg, err := config.Load()
 	if err != nil {
@@ -75,7 +75,11 @@ func runReindex(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create index: %w", err)
 	}
-	defer indexer.Close()
+	defer func() {
+		if closeErr := indexer.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("failed to close index: %w", closeErr)
+		}
+	}()
 
 	// Reindex each source
 	sourcesToReindex := cfg.Sources

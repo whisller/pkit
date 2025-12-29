@@ -29,7 +29,7 @@ func (p *MarkdownParser) Name() string {
 func (p *MarkdownParser) CanParse(sourcePath string) bool {
 	// Check if directory contains any .md files
 	hasMarkdown := false
-	filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}

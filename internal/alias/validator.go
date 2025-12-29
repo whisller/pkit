@@ -163,8 +163,8 @@ func SaveAliases(aliases []models.Alias) error {
 
 	// Rename temporary file to actual aliases file (atomic operation)
 	if err := os.Rename(tmpFile, path); err != nil {
-		// Clean up temporary file on error
-		os.Remove(tmpFile)
+		// Clean up temporary file on error (best effort)
+		_ = os.Remove(tmpFile)
 		return fmt.Errorf("failed to save aliases file: %w", err)
 	}
 

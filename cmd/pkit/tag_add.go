@@ -44,7 +44,8 @@ func runTagAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to add tags: %w", err)
 	}
 
-	fmt.Fprintf(os.Stdout, "Added tags to prompt '%s': %s\n", promptID, strings.Join(tags, ", "))
+	// Output to stdout - error extremely rare (stdout closed/redirected)
+	_, _ = fmt.Fprintf(os.Stdout, "Added tags to prompt '%s': %s\n", promptID, strings.Join(tags, ", "))
 
 	return nil
 }

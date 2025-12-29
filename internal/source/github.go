@@ -53,7 +53,10 @@ func (c *GitHubClient) GetRepository(owner, repo string) (map[string]interface{}
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		// Response body close errors are rare, ignore
+		_ = resp.Body.Close()
+	}()
 
 	// Extract rate limit from response headers
 	rateLimit := ExtractRateLimitFromHeaders(resp, c.token != "")
@@ -95,7 +98,10 @@ func (c *GitHubClient) CheckRateLimit() (*models.RateLimit, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		// Response body close errors are rare, ignore
+		_ = resp.Body.Close()
+	}()
 
 	// Check response status
 	if resp.StatusCode != http.StatusOK {

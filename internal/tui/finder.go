@@ -196,9 +196,6 @@ type FinderModel struct {
 	searchInput   textinput.Model
 	preSearchList []models.Prompt
 
-	// Help text state (T005)
-	helpText string
-
 	// Tag truncation (T006)
 	tagTruncateLength int
 	truncatedTags     map[string]string
@@ -209,9 +206,8 @@ type FinderModel struct {
 	pageSize    int
 
 	// Preview sizing (T008)
-	previewMinHeight     int
-	previewMaxHeightPct  float64
-	previewDynamicHeight int
+	previewMinHeight    int
+	previewMaxHeightPct float64
 }
 
 // NewFinderModel creates a new finder model
@@ -412,11 +408,10 @@ func truncateTag(tag string) string {
 	}
 
 	// Truncate at character boundaries (not byte boundaries)
-	runes := []rune(tag)
 	truncated := ""
 	currentWidth := 0
 
-	for _, r := range runes {
+	for _, r := range tag {
 		// Get character width (1 for ASCII, 2 for CJK, varies for emoji)
 		charWidth := runewidth.RuneWidth(r)
 
@@ -1211,7 +1206,7 @@ func (m *FinderModel) updateFilterSection() {
 			m.filterSection = FilterTags
 			return
 		}
-		cursor += len(m.availableTags)
+		// cursor += len(m.availableTags) // Not needed, last use
 	}
 
 	// Bookmarked section
@@ -1238,7 +1233,7 @@ func (m *FinderModel) toggleCurrentFilter() {
 			m.selectedTags[tag] = !m.selectedTags[tag]
 			return
 		}
-		cursor += len(m.availableTags)
+		// cursor += len(m.availableTags) // Not needed, last use
 	}
 
 	// Bookmarked toggle
@@ -1594,12 +1589,8 @@ func renderBorderedBox(title string, content string, width int, active bool, pag
 		// Use visual width (ignoring ANSI codes) for proper alignment
 		visualWidth := lipgloss.Width(line)
 
-		// Truncate if too long (using visual width)
-		if visualWidth > contentWidth {
-			// For truncation, we need to be more careful with ANSI codes
-			// For now, just use the line as-is and let it overflow
-			// (no action needed - line remains unchanged)
-		}
+		// Note: For long lines, we let them overflow rather than truncating
+		// to preserve ANSI codes. Could be improved in the future.
 
 		// Pad to exact width
 		padding := contentWidth - visualWidth

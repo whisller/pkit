@@ -141,8 +141,8 @@ func Save(cfg *models.Config) error {
 
 	// Rename temporary file to actual config file (atomic operation)
 	if err := os.Rename(tmpFile, configPath); err != nil {
-		// Clean up temporary file on error
-		os.Remove(tmpFile)
+		// Clean up temporary file on error (best effort)
+		_ = os.Remove(tmpFile)
 		return fmt.Errorf("failed to save config file: %w", err)
 	}
 

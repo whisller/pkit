@@ -42,10 +42,11 @@ func runTagRemove(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to remove tags: %w", err)
 	}
 
+	// Output to stdout - error extremely rare (stdout closed/redirected)
 	if len(tags) == 0 {
-		fmt.Fprintf(os.Stdout, "Removed all tags from prompt '%s'\n", promptID)
+		_, _ = fmt.Fprintf(os.Stdout, "Removed all tags from prompt '%s'\n", promptID)
 	} else {
-		fmt.Fprintf(os.Stdout, "Removed tags from prompt '%s': %s\n", promptID, strings.Join(tags, ", "))
+		_, _ = fmt.Fprintf(os.Stdout, "Removed tags from prompt '%s': %s\n", promptID, strings.Join(tags, ", "))
 	}
 
 	return nil

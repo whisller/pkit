@@ -91,8 +91,8 @@ func SaveTags(promptTags []models.PromptTags) error {
 
 	// Rename temporary file to actual tags file (atomic operation)
 	if err := os.Rename(tmpFile, path); err != nil {
-		// Clean up temporary file on error
-		os.Remove(tmpFile)
+		// Clean up temporary file on error (best effort)
+		_ = os.Remove(tmpFile)
 		return fmt.Errorf("failed to save tags file: %w", err)
 	}
 

@@ -29,7 +29,7 @@ func init() {
 	aliasCmd.AddCommand(aliasAddCmd)
 }
 
-func runAliasAdd(cmd *cobra.Command, args []string) error {
+func runAliasAdd(cmd *cobra.Command, args []string) (err error) {
 	promptID := args[0]
 	aliasName := args[1]
 
@@ -54,7 +54,11 @@ func runAliasAdd(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open index: %w", err)
 	}
-	defer indexer.Close()
+	defer func() {
+		if closeErr := indexer.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("failed to close index: %w", closeErr)
+		}
+	}()
 
 	_, err = indexer.GetPromptByID(promptID)
 	if err != nil {
@@ -73,7 +77,8 @@ func runAliasAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create alias: %w", err)
 	}
 
-	fmt.Fprintf(os.Stdout, "Created alias '%s' for prompt '%s'\n", aliasName, promptID)
+	// Output to stdout - error extremely rare (stdout closed/redirected)
+	_, _ = fmt.Fprintf(os.Stdout, "Created alias '%s' for prompt '%s'\n", aliasName, promptID)
 
 	return nil
 }

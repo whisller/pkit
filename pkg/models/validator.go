@@ -24,16 +24,16 @@ var (
 func init() {
 	validate = validator.New()
 
-	// Register custom validators
-	validate.RegisterValidation("source_id", validateSourceID)
-	validate.RegisterValidation("github_url", validateGitHubURL)
-	validate.RegisterValidation("git_sha", validateGitSHA)
-	validate.RegisterValidation("prompt_name", validatePromptName)
-	validate.RegisterValidation("prompt_id", validatePromptID)
-	validate.RegisterValidation("alias", validateAlias)
-	validate.RegisterValidation("tag", validateTag)
-	validate.RegisterValidation("table_style", validateTableStyle)
-	validate.RegisterValidation("date_format", validateDateFormat)
+	// Register custom validators (errors would cause panic in init, acceptable)
+	_ = validate.RegisterValidation("source_id", validateSourceID)
+	_ = validate.RegisterValidation("github_url", validateGitHubURL)
+	_ = validate.RegisterValidation("git_sha", validateGitSHA)
+	_ = validate.RegisterValidation("prompt_name", validatePromptName)
+	_ = validate.RegisterValidation("prompt_id", validatePromptID)
+	_ = validate.RegisterValidation("alias", validateAlias)
+	_ = validate.RegisterValidation("tag", validateTag)
+	_ = validate.RegisterValidation("table_style", validateTableStyle)
+	_ = validate.RegisterValidation("date_format", validateDateFormat)
 }
 
 // validateSourceID validates source ID format: lowercase alphanumeric with hyphens

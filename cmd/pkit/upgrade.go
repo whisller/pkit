@@ -43,7 +43,7 @@ func init() {
 	upgradeCmd.Flags().BoolVarP(&upgradeVerbose, "verbose", "v", false, "Show detailed progress")
 }
 
-func runUpgrade(cmd *cobra.Command, args []string) error {
+func runUpgrade(cmd *cobra.Command, args []string) (err error) {
 	// Load config
 	cfg, err := config.Load()
 	if err != nil {
@@ -77,7 +77,11 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open index: %w", err)
 	}
-	defer indexer.Close()
+	defer func() {
+		if closeErr := indexer.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("failed to close index: %w", closeErr)
+		}
+	}()
 
 	// Determine which sources to upgrade
 	var sourcesToUpgrade []models.Source

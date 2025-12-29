@@ -35,7 +35,8 @@ func runBookmarkRemove(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to remove bookmark: %w", err)
 	}
 
-	fmt.Fprintf(os.Stdout, "Removed bookmark for prompt '%s'\n", promptID)
+	// Output to stdout - error extremely rare (stdout closed/redirected)
+	_, _ = fmt.Fprintf(os.Stdout, "Removed bookmark for prompt '%s'\n", promptID)
 
 	return nil
 }

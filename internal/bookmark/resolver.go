@@ -94,7 +94,11 @@ func ResolveWithContext(identifier string) (*models.Prompt, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open index: %w", err)
 	}
-	defer indexer.Close()
+	defer func() {
+		if closeErr := indexer.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("failed to close index: %w", closeErr)
+		}
+	}()
 
 	// Load aliases
 	aliases, err := alias.LoadAliases()

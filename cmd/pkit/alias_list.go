@@ -33,7 +33,7 @@ func runAliasList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(aliases) == 0 {
-		fmt.Fprintln(os.Stdout, "No aliases created yet. Use 'pkit alias add' to create aliases.")
+		_, _ = fmt.Fprintln(os.Stdout, "No aliases created yet. Use 'pkit alias add' to create aliases.")
 		return nil
 	}
 
@@ -47,7 +47,7 @@ func runAliasList(cmd *cobra.Command, args []string) error {
 	table.Header("ALIAS", "PROMPT ID")
 
 	for _, a := range aliases {
-		table.Append(
+		_ = table.Append(
 			a.Name,
 			a.PromptID,
 		)

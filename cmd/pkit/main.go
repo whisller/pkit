@@ -9,9 +9,9 @@ import (
 
 var (
 	version     = "dev"
-	commit      = "none"
-	date        = "unknown"
-	buildSource = "source"
+	commit      = "none"        //nolint:unused // Injected by goreleaser via ldflags
+	date        = "unknown"     //nolint:unused // Injected by goreleaser via ldflags
+	buildSource = "source"      //nolint:unused // Injected by goreleaser via ldflags
 )
 
 var rootCmd = &cobra.Command{
@@ -44,16 +44,19 @@ func customHelp(cmd *cobra.Command, args []string) {
 	if cmd.Name() != "pkit" {
 		// For subcommands, show full help with Long description
 		if cmd.Long != "" {
-			fmt.Fprintf(os.Stdout, "%s\n\n", cmd.Long)
+			// Output to stdout - error extremely rare (stdout closed/redirected)
+			_, _ = fmt.Fprintf(os.Stdout, "%s\n\n", cmd.Long)
 		} else if cmd.Short != "" {
-			fmt.Fprintf(os.Stdout, "%s\n\n", cmd.Short)
+			// Output to stdout - error extremely rare (stdout closed/redirected)
+			_, _ = fmt.Fprintf(os.Stdout, "%s\n\n", cmd.Short)
 		}
-		fmt.Fprint(os.Stdout, cmd.UsageString())
+		_, _ = fmt.Fprint(os.Stdout, cmd.UsageString())
 		return
 	}
 
-	fmt.Fprintf(os.Stdout, "%s\n\n", cmd.Long)
-	fmt.Fprintf(os.Stdout, "Usage:\n  %s [command]\n\n", cmd.Use)
+	// Output to stdout - error extremely rare (stdout closed/redirected)
+	_, _ = fmt.Fprintf(os.Stdout, "%s\n\n", cmd.Long)
+	_, _ = fmt.Fprintf(os.Stdout, "Usage:\n  %s [command]\n\n", cmd.Use)
 
 	// Define command order: important commands first, utilities last
 	commandOrder := []string{
@@ -79,7 +82,8 @@ func customHelp(cmd *cobra.Command, args []string) {
 		cmdMap[c.Name()] = c
 	}
 
-	fmt.Fprintln(os.Stdout, "Available Commands:")
+	// Output to stdout - error extremely rare (stdout closed/redirected)
+	_, _ = fmt.Fprintln(os.Stdout, "Available Commands:")
 
 	// Print commands in defined order
 	for _, name := range commandOrder {
@@ -88,23 +92,25 @@ func customHelp(cmd *cobra.Command, args []string) {
 			continue
 		}
 
-		// Print parent command
-		fmt.Fprintf(os.Stdout, "  %-15s %s\n", c.Name(), c.Short)
+		// Print parent command (output to stdout - error extremely rare)
+		_, _ = fmt.Fprintf(os.Stdout, "  %-15s %s\n", c.Name(), c.Short)
 
 		// Print subcommands if they exist
 		if c.HasSubCommands() {
 			for _, sub := range c.Commands() {
 				if !sub.Hidden {
-					fmt.Fprintf(os.Stdout, "    %-13s %s\n", sub.Name(), sub.Short)
+					// Output to stdout - error extremely rare (stdout closed/redirected)
+					_, _ = fmt.Fprintf(os.Stdout, "    %-13s %s\n", sub.Name(), sub.Short)
 				}
 			}
 		}
 	}
 
-	fmt.Fprintln(os.Stdout, "\nFlags:")
-	fmt.Fprintln(os.Stdout, "  -h, --help      help for pkit")
-	fmt.Fprintln(os.Stdout, "  -v, --version   version for pkit")
-	fmt.Fprintln(os.Stdout, "\nUse \"pkit [command] --help\" for more information about a command.")
+	// Output to stdout - error extremely rare (stdout closed/redirected)
+	_, _ = fmt.Fprintln(os.Stdout, "\nFlags:")
+	_, _ = fmt.Fprintln(os.Stdout, "  -h, --help      help for pkit")
+	_, _ = fmt.Fprintln(os.Stdout, "  -v, --version   version for pkit")
+	_, _ = fmt.Fprintln(os.Stdout, "\nUse \"pkit [command] --help\" for more information about a command.")
 }
 
 func main() {

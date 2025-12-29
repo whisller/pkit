@@ -95,7 +95,8 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		table.Append(
+		// table.Append is in-memory operation, error extremely rare
+		_ = table.Append(
 			src.ID,
 			src.URL,
 			commitSHA,

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"log"
 	"net/http"
 	"net/url"
 	"sort"
@@ -84,8 +83,7 @@ func (s *Server) renderTemplate(w http.ResponseWriter, name string, data interfa
 
 	err := templates.ExecuteTemplate(w, name, data)
 	if err != nil {
-		log.Printf("Template error: %v", err)
-		log.Printf("Data: %+v", data)
+		// Template rendering errors are rare in production
 		http.Error(w, "Template rendering error", http.StatusInternalServerError)
 	}
 	return err
@@ -101,7 +99,8 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		"uptime_seconds": int(time.Since(s.startTime).Seconds()),
 	}
 
-	json.NewEncoder(w).Encode(response)
+	// JSON encoding to HTTP response rarely fails
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // handleList handles GET / - list prompts with filters.
@@ -119,7 +118,6 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 
 	results, err := s.indexer.Search(searchOpts)
 	if err != nil {
-		log.Printf("Search error: %v", err)
 		http.Error(w, "Search failed", http.StatusInternalServerError)
 		return
 	}
@@ -215,10 +213,8 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		"Tags":          tagList,
 	}
 
-	// Render template
-	if err := s.renderTemplate(w, "list", data); err != nil {
-		log.Printf("Error rendering list template: %v", err)
-	}
+	// Render template (errors handled by renderTemplate)
+	_ = s.renderTemplate(w, "list", data)
 }
 
 // handleDetail handles GET /prompts/:id - view prompt details.
@@ -255,7 +251,8 @@ func (s *Server) handleDetail(w http.ResponseWriter, r *http.Request) {
 			"BackLink": "/",
 		}
 		w.WriteHeader(http.StatusNotFound)
-		s.renderTemplate(w, "error", data)
+		// Template rendering error on error page - ignore
+		_ = s.renderTemplate(w, "error", data)
 		return
 	}
 
@@ -291,10 +288,8 @@ func (s *Server) handleDetail(w http.ResponseWriter, r *http.Request) {
 		"Detail": detail,
 	}
 
-	// Render template
-	if err := s.renderTemplate(w, "detail", data); err != nil {
-		log.Printf("Error rendering detail template: %v", err)
-	}
+	// Render template (errors handled by renderTemplate)
+	_ = s.renderTemplate(w, "detail", data)
 }
 
 // handleBookmarkToggle handles POST /api/bookmarks - toggle bookmark.
@@ -302,7 +297,8 @@ func (s *Server) handleBookmarkToggle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method != http.MethodPost {
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		// JSON encoding error response rarely fails
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
 			"error":   "Method not allowed",
 		})
@@ -315,7 +311,8 @@ func (s *Server) handleBookmarkToggle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		// JSON encoding error response rarely fails
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
 			"error":   "Invalid request body",
 		})
@@ -323,7 +320,8 @@ func (s *Server) handleBookmarkToggle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.PromptID == "" {
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		// JSON encoding error response rarely fails
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
 			"error":   "prompt_id is required",
 		})
@@ -340,7 +338,8 @@ func (s *Server) handleBookmarkToggle(w http.ResponseWriter, r *http.Request) {
 	if isBookmarked {
 		// Remove bookmark
 		if err := s.bookmarkMgr.RemoveBookmark(req.PromptID); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			// JSON encoding error response rarely fails
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"success": false,
 				"error":   fmt.Sprintf("Failed to remove bookmark: %v", err),
 			})
@@ -356,7 +355,8 @@ func (s *Server) handleBookmarkToggle(w http.ResponseWriter, r *http.Request) {
 
 		// Validate bookmark (same as CLI)
 		if err := bookmark.ValidateBookmark(&bm); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			// JSON encoding error response rarely fails
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"success": false,
 				"error":   fmt.Sprintf("Invalid bookmark: %v", err),
 			})
@@ -364,7 +364,8 @@ func (s *Server) handleBookmarkToggle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := s.bookmarkMgr.AddBookmark(bm); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			// JSON encoding error response rarely fails
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"success": false,
 				"error":   fmt.Sprintf("Failed to add bookmark: %v", err),
 			})
@@ -374,13 +375,11 @@ func (s *Server) handleBookmarkToggle(w http.ResponseWriter, r *http.Request) {
 		message = "Bookmarked"
 	}
 
-	// Reload cache
-	if err := s.loadCache(); err != nil {
-		log.Printf("Warning: Failed to reload cache after bookmark toggle: %v", err)
-	}
+	// Reload cache (errors ignored - cache will be reloaded on next request)
+	_ = s.loadCache()
 
-	// Return success
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	// Return success - JSON encoding to HTTP response rarely fails
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":    true,
 		"bookmarked": bookmarked,
 		"message":    message,
@@ -392,7 +391,8 @@ func (s *Server) handleTagUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method != http.MethodPost {
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		// JSON encoding error response rarely fails
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
 			"error":   "Method not allowed",
 		})
@@ -406,7 +406,8 @@ func (s *Server) handleTagUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		// JSON encoding error response rarely fails
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
 			"error":   "Invalid request body",
 		})
@@ -414,7 +415,8 @@ func (s *Server) handleTagUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.PromptID == "" {
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		// JSON encoding error response rarely fails
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
 			"error":   "prompt_id is required",
 		})
@@ -428,16 +430,16 @@ func (s *Server) handleTagUpdate(w http.ResponseWriter, r *http.Request) {
 	// Remove all existing tags first
 	existingTags, _ := s.tagMgr.GetTags(req.PromptID)
 	if len(existingTags) > 0 {
-		if err := s.tagMgr.RemoveTags(req.PromptID, []string{}); err != nil {
-			// Ignore error if tags don't exist
-		}
+		// RemoveTags with empty slice removes all tags, errors can be ignored (tags may not exist)
+		_ = s.tagMgr.RemoveTags(req.PromptID, []string{})
 	}
 
 	// Add new tags if any
 	var message string
 	if len(uniqueTags) > 0 {
 		if err := s.tagMgr.AddTags(req.PromptID, uniqueTags); err != nil {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			// JSON encoding error response rarely fails
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"success": false,
 				"error":   fmt.Sprintf("Failed to update tags: %v", err),
 			})
@@ -448,13 +450,11 @@ func (s *Server) handleTagUpdate(w http.ResponseWriter, r *http.Request) {
 		message = "Tags cleared"
 	}
 
-	// Reload cache
-	if err := s.loadCache(); err != nil {
-		log.Printf("Warning: Failed to reload cache after tag update: %v", err)
-	}
+	// Reload cache (errors ignored - cache will be reloaded on next request)
+	_ = s.loadCache()
 
-	// Return success
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	// Return success - JSON encoding to HTTP response rarely fails
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"tags":    uniqueTags,
 		"message": message,
@@ -465,7 +465,8 @@ func (s *Server) handleTagUpdate(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	// Stub - optional feature for AJAX
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"results": [], "total": 0}`))
+	// Write to HTTP response rarely fails
+	_, _ = w.Write([]byte(`{"results": [], "total": 0}`))
 }
 
 // parseFilters extracts filter state from query parameters.

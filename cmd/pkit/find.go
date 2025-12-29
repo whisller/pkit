@@ -52,7 +52,7 @@ func init() {
 	findCmd.Flags().BoolVarP(&findVerbose, "verbose", "v", false, "Show detailed progress")
 }
 
-func runFind(cmd *cobra.Command, args []string) error {
+func runFind(cmd *cobra.Command, args []string) (err error) {
 	// Check if stdout is a TTY
 	isTTY := isatty.IsTerminal(os.Stdout.Fd())
 
@@ -72,7 +72,7 @@ func runFind(cmd *cobra.Command, args []string) error {
 
 	// Check if any sources are subscribed
 	if len(cfg.Sources) == 0 {
-		return fmt.Errorf(`No sources subscribed
+		return fmt.Errorf(`no sources subscribed
 
 Subscribe to sources first:
   pkit subscribe fabric/patterns
@@ -94,7 +94,11 @@ Then use find:
 	if err != nil {
 		return fmt.Errorf("failed to open index: %w", err)
 	}
-	defer indexer.Close()
+	defer func() {
+		if closeErr := indexer.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("failed to close index: %w", closeErr)
+		}
+	}()
 
 	// Search for prompts
 	query := ""
@@ -148,10 +152,10 @@ Then use find:
 			return handleFindGet(selectedID)
 		}
 		// Otherwise just output the ID
-		fmt.Fprintln(os.Stdout, selectedID)
+		_, _ = fmt.Fprintln(os.Stdout, selectedID)
 		return nil
 	default:
-		fmt.Fprintln(os.Stdout, selectedID)
+		_, _ = fmt.Fprintln(os.Stdout, selectedID)
 		return nil
 	}
 }
@@ -190,7 +194,7 @@ func handleFindTag(promptID string) error {
 	return nil
 }
 
-func runFindFallback(args []string) error {
+func runFindFallback(args []string) (err error) {
 	// Simple fallback: search and output prompt IDs
 	cfg, err := config.Load()
 	if err != nil {
@@ -211,7 +215,11 @@ func runFindFallback(args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open index: %w", err)
 	}
-	defer indexer.Close()
+	defer func() {
+		if closeErr := indexer.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("failed to close index: %w", closeErr)
+		}
+	}()
 
 	query := ""
 	if len(args) > 0 {
@@ -228,9 +236,9 @@ func runFindFallback(args []string) error {
 		return fmt.Errorf("search failed: %w", err)
 	}
 
-	// Output prompt IDs (one per line for piping)
+	// Output prompt IDs (one per line for piping) - error extremely rare
 	for _, result := range results {
-		fmt.Fprintln(os.Stdout, result.Prompt.ID)
+		_, _ = fmt.Fprintln(os.Stdout, result.Prompt.ID)
 	}
 
 	return nil

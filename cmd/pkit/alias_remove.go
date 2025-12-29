@@ -35,7 +35,7 @@ func runAliasRemove(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to remove alias: %w", err)
 	}
 
-	fmt.Fprintf(os.Stdout, "Removed alias '%s'\n", aliasName)
+	_, _ = fmt.Fprintf(os.Stdout, "Removed alias '%s'\n", aliasName)
 
 	return nil
 }

@@ -33,7 +33,7 @@ func runBookmarkList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(bookmarks) == 0 {
-		fmt.Fprintln(os.Stdout, "No bookmarks saved yet. Use 'pkit bookmark add' to create bookmarks.")
+		_, _ = fmt.Fprintln(os.Stdout, "No bookmarks saved yet. Use 'pkit bookmark add' to create bookmarks.")
 		return nil
 	}
 
@@ -49,7 +49,7 @@ func runBookmarkList(cmd *cobra.Command, args []string) error {
 	for _, bm := range bookmarks {
 		usageStr := fmt.Sprintf("%d", bm.UsageCount)
 
-		table.Append(
+		_ = table.Append(
 			bm.PromptID,
 			usageStr,
 		)
