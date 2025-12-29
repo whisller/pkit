@@ -1,0 +1,16 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Release
+    uses: whisller/forge-ci/.github/workflows/forge-ci-go-release.yml@main
+    with:
+      goreleaser-version: 'latest'
+      config-path: '.goreleaser.yaml'
+    secrets:
+      release_token: ${{ secrets.GITHUB_TOKEN }}
