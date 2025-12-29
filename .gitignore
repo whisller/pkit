@@ -44,3 +44,5 @@ Thumbs.db
 
 # User data directory (for testing)
 .pkit/
+# Added by goreleaser init:
+dist/
