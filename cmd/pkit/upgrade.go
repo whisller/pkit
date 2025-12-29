@@ -18,13 +18,17 @@ import (
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade [source]",
 	Short: "Upgrade source(s) to the latest commit and re-index",
-	Long: `Upgrade one or more sources by pulling latest changes from the remote repository
+	Long: `Upgrade sources by pulling latest changes from the remote repository
 and re-indexing the prompts.
 
+By default, upgrades all sources with available updates.
+Specify a source name to upgrade only that source.
+
 Examples:
-  pkit upgrade fabric              # Upgrade specific source
-  pkit upgrade --all               # Upgrade all sources with updates
-  pkit upgrade fabric --force      # Force upgrade even if no updates`,
+  pkit upgrade                     # Upgrade all sources (default)
+  pkit upgrade fabric              # Upgrade specific source only
+  pkit upgrade --force             # Force upgrade all sources even if up to date
+  pkit upgrade fabric --force      # Force upgrade specific source`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runUpgrade,
 }
@@ -38,7 +42,7 @@ var (
 func init() {
 	rootCmd.AddCommand(upgradeCmd)
 
-	upgradeCmd.Flags().BoolVar(&upgradeAll, "all", false, "Upgrade all sources with updates")
+	upgradeCmd.Flags().BoolVar(&upgradeAll, "all", false, "Upgrade all sources (default behavior, kept for compatibility)")
 	upgradeCmd.Flags().BoolVar(&upgradeForce, "force", false, "Force upgrade even if no updates")
 	upgradeCmd.Flags().BoolVarP(&upgradeVerbose, "verbose", "v", false, "Show detailed progress")
 }
@@ -86,7 +90,10 @@ func runUpgrade(cmd *cobra.Command, args []string) (err error) {
 	// Determine which sources to upgrade
 	var sourcesToUpgrade []models.Source
 
-	if upgradeAll {
+	// Default to upgrading all sources if no source name provided
+	upgradeAllSources := upgradeAll || len(args) == 0
+
+	if upgradeAllSources {
 		// Check all sources for updates
 		if upgradeVerbose {
 			fmt.Fprintln(os.Stderr, "→ Checking for updates...")
@@ -141,11 +148,7 @@ func runUpgrade(cmd *cobra.Command, args []string) (err error) {
 			return nil
 		}
 	} else {
-		// Upgrade specific source
-		if len(args) == 0 {
-			return fmt.Errorf("source name required or use --all flag")
-		}
-
+		// Upgrade specific source (when source name is provided)
 		sourceID := args[0]
 		found := false
 		for _, src := range cfg.Sources {
