@@ -35,12 +35,12 @@ type PromptDetail struct {
 
 // FilterState represents active filters.
 type FilterState struct {
-	SearchQuery  string
-	SourceFilter string
-	TagFilters   []string
-	Bookmarked   bool
-	Page         int
-	PerPage      int
+	SearchQuery   string
+	SourceFilters []string
+	TagFilters    []string
+	Bookmarked    bool
+	Page          int
+	PerPage       int
 }
 
 // PaginatedResult represents paginated list results.
@@ -112,8 +112,13 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 	// NOTE: Don't filter by tags in indexer - user tags are in tags.yml, not in the index
 	searchOpts := index.SearchOptions{
 		Query:      filters.SearchQuery,
-		SourceID:   filters.SourceFilter,
+		SourceID:   "", // We'll filter by sources manually if multiple selected
 		MaxResults: 10000, // Get all results, we'll paginate in memory
+	}
+
+	// If only one source selected, use indexer's source filter for efficiency
+	if len(filters.SourceFilters) == 1 {
+		searchOpts.SourceID = filters.SourceFilters[0]
 	}
 
 	results, err := s.indexer.Search(searchOpts)
@@ -122,10 +127,24 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert to list items and apply user-specific filters (bookmarks, tags)
+	// Convert to list items and apply user-specific filters (bookmarks, tags, sources)
 	s.cache.mu.RLock()
 	items := []PromptListItem{}
 	for _, result := range results {
+		// Apply source filter if multiple sources selected
+		if len(filters.SourceFilters) > 1 {
+			matchesSource := false
+			for _, sourceFilter := range filters.SourceFilters {
+				if result.Prompt.SourceID == sourceFilter {
+					matchesSource = true
+					break
+				}
+			}
+			if !matchesSource {
+				continue
+			}
+		}
+
 		// Apply bookmarked filter (user-specific, not in index)
 		_, isBookmarked := s.cache.bookmarks[result.Prompt.ID]
 		if filters.Bookmarked && !isBookmarked {
@@ -477,12 +496,12 @@ func parseFilters(query url.Values) FilterState {
 	}
 
 	return FilterState{
-		SearchQuery:  query.Get("search"),
-		SourceFilter: query.Get("source"),
-		TagFilters:   query["tags"],
-		Bookmarked:   query.Get("bookmarked") == "true",
-		Page:         page,
-		PerPage:      50,
+		SearchQuery:   query.Get("search"),
+		SourceFilters: query["sources"],
+		TagFilters:    query["tags"],
+		Bookmarked:    query.Get("bookmarked") == "true",
+		Page:          page,
+		PerPage:       50,
 	}
 }
 

@@ -11,15 +11,23 @@
                        value="{{.Filters.SearchQuery}}">
             </div>
 
-            <div class="filter-group">
-                <label for="source">Source</label>
-                <select id="source" name="source">
-                    <option value="">All Sources</option>
+            {{if .Sources}}
+            <div class="filter-group filter-sources">
+                <label>Filter by Sources</label>
+                <div class="source-checkboxes">
                     {{range .Sources}}
-                        <option value="{{.}}" {{if eq . $.Filters.SourceFilter}}selected{{end}}>{{.}}</option>
+                        {{$source := .}}
+                        <label class="source-checkbox">
+                            <input type="checkbox"
+                                   name="sources"
+                                   value="{{.}}"
+                                   {{range $.Filters.SourceFilters}}{{if eq . $source}}checked{{end}}{{end}}>
+                            <span>{{.}}</span>
+                        </label>
                     {{end}}
-                </select>
+                </div>
             </div>
+            {{end}}
 
             <div class="filter-group">
                 <label for="bookmarked">Bookmarked Only</label>

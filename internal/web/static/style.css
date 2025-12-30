@@ -119,13 +119,17 @@ body {
     flex: 2;
 }
 
-.tag-checkboxes {
+.filter-sources {
+    flex: 2;
+}
+
+.tag-checkboxes, .source-checkboxes {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
 }
 
-.tag-checkbox {
+.tag-checkbox, .source-checkbox {
     display: flex;
     align-items: center;
     gap: 5px;
@@ -137,11 +141,11 @@ body {
     font-size: 14px;
 }
 
-.tag-checkbox input {
+.tag-checkbox input, .source-checkbox input {
     cursor: pointer;
 }
 
-.tag-checkbox:hover {
+.tag-checkbox:hover, .source-checkbox:hover {
     background-color: #e9ecef;
 }
 
