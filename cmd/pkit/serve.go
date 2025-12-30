@@ -14,8 +14,9 @@ import (
 )
 
 var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "Start local web server",
+	Use:     "web",
+	Aliases: []string{"serve"},
+	Short:   "Start local web server",
 	Long: `Start a local web server to browse prompts in your browser.
 
 The web server provides the same functionality as 'pkit find' but in a
@@ -30,13 +31,13 @@ Features:
 
 Examples:
   # Start server on default port 8080
-  pkit serve
+  pkit web
 
   # Start server on custom port
-  pkit serve --port 3000
+  pkit web --port 3000
 
   # Start server and specify custom index location
-  pkit serve --port 8080
+  pkit web --port 8080
 
 The server will display a message with the URL to open in your browser.
 Press Ctrl+C to stop the server.`,
