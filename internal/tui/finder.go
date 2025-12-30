@@ -577,6 +577,23 @@ func (m *FinderModel) reloadData() {
 
 	// Reapply filters
 	m.applyFilters()
+
+	// If search mode is active, reapply search filter to preserve search results
+	if m.searchMode {
+		m.preSearchList = m.filteredPrompts // Update the backup list with new filter results
+		m.filteredPrompts = m.applySearchFilter(m.preSearchList, m.searchQuery)
+
+		// Update list items with search results and bookmark indicators
+		items := make([]list.Item, len(m.filteredPrompts))
+		for i, p := range m.filteredPrompts {
+			items[i] = PromptItem{
+				Prompt:     p,
+				Bookmarked: m.bookmarkedIDs[p.ID],
+			}
+		}
+		m.list.SetItems(items)
+		m.updatePagination()
+	}
 }
 
 // setStatus sets a status message with timeout
@@ -629,6 +646,11 @@ func (m FinderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// Handle input modes (dialogs) first - they have priority over search mode
+		if m.inputMode != ModeNormal {
+			return m.handleInputMode(msg)
+		}
+
 		// Handle search mode (T011, T012, T014)
 		if m.searchMode {
 			switch {
@@ -645,11 +667,39 @@ func (m FinderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Keep current filteredPrompts as search results
 				return m, nil
 
+			case key.Matches(msg, m.keys.Up), key.Matches(msg, m.keys.Down):
+				// Allow arrow keys to navigate the list even in search mode
+				var cmd tea.Cmd
+				m.list, cmd = m.list.Update(msg)
+				m.updatePagination()
+				return m, cmd
+
+			case key.Matches(msg, m.keys.Get),
+				key.Matches(msg, m.keys.Bookmark),
+				key.Matches(msg, m.keys.RemoveBookmark),
+				key.Matches(msg, m.keys.Tag),
+				key.Matches(msg, m.keys.Alias),
+				key.Matches(msg, m.keys.RemoveTag),
+				key.Matches(msg, m.keys.Notes),
+				key.Matches(msg, m.keys.Preview):
+				// Allow action key bindings to work during search mode
+				// Keep search mode active so user returns to search results after action
+				return m.updateListPanel(msg)
+
 			default:
 				// Update search input
 				var cmd tea.Cmd
 				m.searchInput, cmd = m.searchInput.Update(msg)
 				m.searchQuery = m.searchInput.Value()
+
+				// Auto-exit search mode when last character is removed
+				if m.searchQuery == "" {
+					m.searchMode = false
+					m.searchInput.SetValue("")
+					m.filteredPrompts = m.preSearchList // Restore pre-search list
+					m.applyFilters()                    // Reapply filters to update list display
+					return m, cmd
+				}
 
 				// Apply real-time search filtering
 				m.filteredPrompts = m.applySearchFilter(m.preSearchList, m.searchQuery)
@@ -664,13 +714,11 @@ func (m FinderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.list.SetItems(items)
 
+				// Update pagination after search results change
+				m.updatePagination()
+
 				return m, cmd
 			}
-		}
-
-		// Handle input modes
-		if m.inputMode != ModeNormal {
-			return m.handleInputMode(msg)
 		}
 
 		// Global shortcuts

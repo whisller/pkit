@@ -16,10 +16,10 @@
 
 ---
 
-<!-- TODO: Add demo.gif here -->
 <div align="center">
-    <img src="docs/demo.gif" alt="pkit demo" width="800"/>
-    <p><em>Interactive TUI for browsing and searching prompts</em></p>
+    <img src="docs/gifs/terminal.gif" alt="pkit demo" width="240"/>
+    <img src="docs/gifs/web.gif" alt="pkit demo" width="240"/>
+    <p><em>Interactive TUI and Web for browsing and searching prompts</em></p>
 </div>
 
 ---
