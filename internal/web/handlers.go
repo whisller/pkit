@@ -110,15 +110,11 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 
 	// Use indexer to search (reuses CLI search logic)
 	// NOTE: Don't filter by tags in indexer - user tags are in tags.yml, not in the index
+	// NOTE: Don't filter by source in indexer - we need all sources visible in filter UI
 	searchOpts := index.SearchOptions{
 		Query:      filters.SearchQuery,
-		SourceID:   "", // We'll filter by sources manually if multiple selected
+		SourceID:   "", // Always empty - filter sources manually to keep all filter options visible
 		MaxResults: 10000, // Get all results, we'll paginate in memory
-	}
-
-	// If only one source selected, use indexer's source filter for efficiency
-	if len(filters.SourceFilters) == 1 {
-		searchOpts.SourceID = filters.SourceFilters[0]
 	}
 
 	results, err := s.indexer.Search(searchOpts)
@@ -131,8 +127,8 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 	s.cache.mu.RLock()
 	items := []PromptListItem{}
 	for _, result := range results {
-		// Apply source filter if multiple sources selected
-		if len(filters.SourceFilters) > 1 {
+		// Apply source filter if any sources selected
+		if len(filters.SourceFilters) > 0 {
 			matchesSource := false
 			for _, sourceFilter := range filters.SourceFilters {
 				if result.Prompt.SourceID == sourceFilter {
