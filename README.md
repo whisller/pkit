@@ -32,6 +32,7 @@
 - **Bookmarking**: Save prompts with custom aliases and tags
 - **Unix pipe-friendly**: Clean output protocol for piping to execution tools
 - **Tool-agnostic**: Works with claude, llm, fabric, mods, and any CLI tool
+- **Private GitHub Repos supported**: include your own prompt databases
 
 ## Quick Start
 
