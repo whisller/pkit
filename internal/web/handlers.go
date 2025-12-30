@@ -195,14 +195,20 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 	paginated := paginate(items, filters.Page, filters.PerPage)
 
 	// Get unique sources and tags for filter UI
+	// Build from ALL results (not filtered items) so all options remain visible
 	sources := make(map[string]bool)
 	allTags := make(map[string]bool)
-	for _, item := range items {
-		sources[item.Prompt.SourceID] = true
-		for _, tag := range item.Tags {
+
+	s.cache.mu.RLock()
+	for _, result := range results {
+		sources[result.Prompt.SourceID] = true
+		// Get tags for this prompt
+		tags := s.cache.tags[result.Prompt.ID]
+		for _, tag := range tags {
 			allTags[tag] = true
 		}
 	}
+	s.cache.mu.RUnlock()
 
 	// Convert maps to sorted slices
 	sourceList := make([]string, 0, len(sources))
