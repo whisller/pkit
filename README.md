@@ -68,7 +68,7 @@ pkit subscribe fabric/patterns f/awesome-chatgpt-prompts
 pkit find
 
 # Start web server, where you can use your browser to manage your prompts
-pkit serve --port 8080
+pkit web --port 8080
 # Open http://127.0.0.1:8080 in your browser
 
 # Search for prompts
@@ -103,7 +103,7 @@ pkit search --tags dev,security
 #### Web Interface
 ```bash
 # Start web server on custom port
-pkit serve --port 3000 --host 0.0.0.0
+pkit web --port 3000 --host 0.0.0.0
 
 # Access at http://localhost:3000
 # Features:
