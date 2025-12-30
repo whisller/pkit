@@ -17,8 +17,7 @@
 ---
 
 <div align="center">
-    <img src="docs/gifs/terminal.gif" alt="pkit demo" width="240"/>
-    <img src="docs/gifs/web.gif" alt="pkit demo" width="240"/>
+    <img src="docs/gifs/terminal.gif" alt="pkit demo" width="750"/><br/><img src="docs/gifs/web.gif" alt="pkit demo" width="350"/>
     <p><em>Interactive TUI and Web for browsing and searching prompts</em></p>
 </div>
 
