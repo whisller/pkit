@@ -123,10 +123,16 @@ body {
     flex: 2;
 }
 
-.tag-checkboxes, .source-checkboxes {
+.tag-checkboxes {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
+}
+
+.source-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .tag-checkbox, .source-checkbox {
