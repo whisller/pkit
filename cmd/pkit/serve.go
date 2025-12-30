@@ -14,9 +14,8 @@ import (
 )
 
 var serveCmd = &cobra.Command{
-	Use:     "web",
-	Aliases: []string{"serve"},
-	Short:   "Start local web server",
+	Use:   "web",
+	Short: "Start local web server",
 	Long: `Start a local web server to browse prompts in your browser.
 
 The web server provides the same functionality as 'pkit find' but in a
