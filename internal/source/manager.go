@@ -143,7 +143,7 @@ func (m *Manager) Update(source *models.Source) (string, error) {
 }
 
 // ExtractSourceIDFromURL extracts a source ID from a GitHub URL.
-// Example: "https://github.com/danielmiessler/fabric" -> "fabric"
+// Example: "https://github.com/danielmiessler/fabric" -> "danielmiessler/fabric"
 func ExtractSourceIDFromURL(url string) string {
 	// Remove protocol
 	url = strings.TrimPrefix(url, "https://")
@@ -153,10 +153,14 @@ func ExtractSourceIDFromURL(url string) string {
 	// Remove .git suffix
 	url = strings.TrimSuffix(url, ".git")
 
-	// Split by / and take the last part
+	// Split by / and take owner/repo (last 2 parts)
 	parts := strings.Split(url, "/")
-	if len(parts) > 0 {
-		return parts[len(parts)-1]
+	if len(parts) >= 2 {
+		// Return owner/repo format
+		return parts[len(parts)-2] + "/" + parts[len(parts)-1]
+	} else if len(parts) == 1 {
+		// Fallback to just repo name if only one part
+		return parts[0]
 	}
 
 	return "unknown"

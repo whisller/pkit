@@ -13,10 +13,10 @@ var (
 	validate *validator.Validate
 
 	// Custom regex patterns
-	sourceIDRegex   = regexp.MustCompile(`^[a-z0-9-]+$`)
+	sourceIDRegex   = regexp.MustCompile(`^[a-z0-9-]+(/[a-z0-9-]+)?$`)
 	promptNameRegex = regexp.MustCompile(`^[a-z0-9_-]+$`)
 	aliasRegex      = regexp.MustCompile(`^[a-z0-9_-]+$`)
-	promptIDRegex   = regexp.MustCompile(`^[a-z0-9-]+:[a-z0-9_-]+$`)
+	promptIDRegex   = regexp.MustCompile(`^[a-z0-9-]+(/[a-z0-9-]+)?:[a-z0-9_-]+$`)
 	shaRegex        = regexp.MustCompile(`^[a-f0-9]{40}$`)
 	tagRegex        = regexp.MustCompile(`^[a-z0-9_-]+$`)
 )
